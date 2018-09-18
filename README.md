@@ -1,6 +1,10 @@
 # eqaainfo
 Read EQ AA data from network capture
 
+Requirements:
+1. Python 3.6+
+2. pip install scapy
+
 Instructions:
 1. Capture network data to a PCAP file using tools such as Wireshark or tcpdump
 2. Login to Test server and reset/rebuy your AAs during the capture
