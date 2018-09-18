@@ -11,3 +11,4 @@ Instructions:
 3. Copy dbstr_us.txt from your Everquest directory to ./data if you want titles to display
 4. Copy spells_us.txt from your Everquest direction to ./data if you want spell names to display
 5. Execute: py aainfo.py [path to pcap file]
+6. Data is written to aainfo.txt in the current directory
