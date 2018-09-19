@@ -37,6 +37,7 @@ FragmentSeq = [-1, -1]
 FragmentedPacketSize = [0, 0]
 FragmentedBytesCollected = [0, 0]
 Fragments = [[]] * 2
+SavedAA = 0
 
 def readByte(buffer):
   value = buffer[0]
@@ -158,7 +159,6 @@ def processCache(output, direction):
 
 def findOpcode(opcode, buffer):
   global AATableOpcode
-  result = -1
 
   # eliminate packets too small for an AA
   size = len(buffer)
@@ -169,19 +169,16 @@ def findOpcode(opcode, buffer):
       end = len(aa)
       while (not found and end < size):
         if (buffer[start:end] == aa):
-          result = 2
           AATableOpcode = opcode
           found = True
         else:
           start += 1
           end += 1
 
-  return result
-
 def handleAppPacket(output, srcIP, dstIP, srcPort, dstPort, opcode, size, bytes, pos, direction):
-  result = -1
+  global SavedAA
   if (AATableOpcode == 0):
-    result = findOpcode(opcode, list(bytes[pos:]))
+    findOpcode(opcode, list(bytes[pos:]))
 
   if (AATableOpcode != 0 and opcode == AATableOpcode and getDirection(srcIP, dstIP, srcPort, dstPort) == ServerToClient):
     try:
@@ -243,10 +240,10 @@ def handleAppPacket(output, srcIP, dstIP, srcPort, dstPort, opcode, size, bytes,
       elif (rank > 1):
         title = '%s (%d)' % (title, rank)
 
-      output.write('Ability: \t%s\r\n' % title)
-      output.write('Activation ID: \t%d\r\n' % aaID)
+      output.write('Ability: \t%s\n' % title)
+      output.write('Activation ID: \t%d\n' % aaID)
       if (type > -1):
-        output.write('Category: \t%s\r\n' % AATypes[type])
+        output.write('Category: \t%s\n' % AATypes[type])
 
       # list of classes
       classes = []
@@ -258,19 +255,19 @@ def handleAppPacket(output, srcIP, dstIP, srcPort, dstPort, opcode, size, bytes,
         classes.append('Ber')
 
       if (len(classes) == len(ClassList)):
-        output.write('Classes: \tAll\r\n')
+        output.write('Classes: \tAll\n')
       else:
         classes.sort()
-        output.write('Classes: \t%s\r\n' % ' '.join(classes))
+        output.write('Classes: \t%s\n' % ' '.join(classes))
 
-      output.write('Expansion: \t%d\r\n' % expansion)
-      output.write('Level: \t\t%d\r\n' % reqLevel)
-      output.write('Rank: \t\t%d / %d\r\n' % (rank, maxRank))
-      output.write('Rank Cost: \t%d AAs\r\n' % cost)
+      output.write('Expansion: \t%d\n' % expansion)
+      output.write('Level: \t\t%d\n' % reqLevel)
+      output.write('Rank: \t\t%d / %d\n' % (rank, maxRank))
+      output.write('Rank Cost: \t%d AAs\n' % cost)
 
       if (refreshTime > 0):
-        output.write('Reuse Time: \t%ds\r\n' % refreshTime)
-        output.write('Timer ID: \t%d\r\n' % abilityTimer)
+        output.write('Reuse Time: \t%ds\n' % refreshTime)
+        output.write('Timer ID: \t%d\n' % abilityTimer)
 
       if (spellID > 0):
         spellName = DBSpells.get(spellID)
@@ -278,34 +275,32 @@ def handleAppPacket(output, srcIP, dstIP, srcPort, dstPort, opcode, size, bytes,
           print('Spell Title not found in DB for %d, possible problem parsing data (format change?)' % spellID)
         if (spellName == None):
           spellName = spellID
-        output.write('Spell: \t\t%s\r\n' % spellName)
-      output.write('Total Cost: \t%d AAs\r\n' % totalCost)
+        output.write('Spell: \t\t%s\n' % spellName)
+      output.write('Total Cost: \t%d AAs\n' % totalCost)
+      output.write('Description: \t%s\n' % descID)
 
       for i in range(len(reqRanks)):
-        output.write('Requirements: \tRank %d of AA/Skill: %d\r\n' % (reqRanks[i], reqSkills[i]))
+        output.write('Requirements: \tRank %d of AA/Skill: %d\n' % (reqRanks[i], reqSkills[i]))
 
       if (spaCount > 0):
-        output.write('Found %d SPA Slots:\r\n' % spaCount)
+        output.write('Found %d SPA Slots:\n' % spaCount)
 
       for t in range(spaCount):
         spa = readUInt32(buffer)
         base1 = readInt32(buffer)
         base2 = readInt32(buffer)
         slot = readUInt32(buffer)
-        output.write('\tSlot:\t%d\tSPA:\t%d\tBase1:\t%d\tBase2:\t%d\r\n' % (slot, spa, base1, base2))
+        output.write('\tSlot:\t%d\tSPA:\t%d\tBase1:\t%d\tBase2:\t%d\n' % (slot, spa, base1, base2))
 
-      output.write('\r\n')
-      result = 0
+      output.write('\n')
+      SavedAA += 1
     except Exception as error:
       if (Debug):
         print(error)
 
-  return result
-
 def handlePacket(output, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket, isCached):
   global CryptoFlag, FragmentSeq, Fragments, FragmentedPacketSize, FragmentedBytesCollected
   opcode = bytes[0] * 256 + bytes[1]
-  result = -1
 
   direction = getDirection(srcIP, dstIP, srcPort, dstPort)
   if (direction == UnknownDirection and opcode != 1):
@@ -381,7 +376,7 @@ def handlePacket(output, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket, isC
 
             appOpcode = appOpcode + uncompressed[pos] * 256
             pos += 1
-            result = handleAppPacket(output, srcIP, dstIP, srcPort, dstPort, appOpcode, size - opcodeBytes, uncompressed, pos, direction)
+            handleAppPacket(output, srcIP, dstIP, srcPort, dstPort, appOpcode, size - opcodeBytes, uncompressed, pos, direction)
             pos += size - opcodeBytes
       else:
         pos = opcodeBytes = 2
@@ -393,7 +388,7 @@ def handlePacket(output, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket, isC
           opcodeBytes = 3
 
         appOpcode = appOpcode + uncompressed[pos] * 256
-        result = handleAppPacket(output, srcIP, dstIP, srcPort, dstPort, appOpcode, len(uncompressed) - 2 + opcodeBytes, uncompressed, pos + 1, direction)       
+        handleAppPacket(output, srcIP, dstIP, srcPort, dstPort, appOpcode, len(uncompressed) - 2 + opcodeBytes, uncompressed, pos + 1, direction)       
 
     # Fragment
     elif (opcode == 0x0d):
@@ -478,7 +473,7 @@ def handlePacket(output, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket, isC
 
                 appOpcode += Fragments[direction][pos] * 256
                 pos += 1
-                result = handleAppPacket(output, srcIP, dstIP, srcPort, dstPort, appOpcode, size - opcodeBytes, Fragments[direction], pos, direction)
+                handleAppPacket(output, srcIP, dstIP, srcPort, dstPort, appOpcode, size - opcodeBytes, Fragments[direction], pos, direction)
                 pos = pos + size - opcodeBytes
             else:
               pos = 0
@@ -494,7 +489,7 @@ def handlePacket(output, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket, isC
               pos += 1
               lastIndex = len(Fragments[direction]) - opcodeBytes + pos
               newPacket = Fragments[direction][pos:lastIndex]
-              result = handleAppPacket(output, srcIP, dstIP, srcPort, dstPort, appOpcode, len(newPacket), newPacket, 0, direction)
+              handleAppPacket(output, srcIP, dstIP, srcPort, dstPort, appOpcode, len(newPacket), newPacket, 0, direction)
             FragmentSeq[direction] = -1
 
     # Unencapsulated EQ Application Opcode
@@ -510,7 +505,7 @@ def handlePacket(output, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket, isC
         else:
           appOpcode = bytes[2] * 256 + bytes[0] 
           newPacket = bytes[3:]
-      result = handleAppPacket(output, srcIP, dstIP, srcPort, dstPort, appOpcode, len(newPacket), newPacket, 0, direction)
+      handleAppPacket(output, srcIP, dstIP, srcPort, dstPort, appOpcode, len(newPacket), newPacket, 0, direction)
   except TypeError as error:
     if (Debug):
       print(error)
@@ -518,10 +513,17 @@ def handlePacket(output, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket, isC
   if (not isCached and len(Cache) > 0):
     processCache(output, ServerToClient)
     processCache(output, ClientToServer)
-  return result
+
+def processPacket(packet, output):
+  try:
+    if (UDP in packet and len(packet[UDP].payload) > 2):
+      handlePacket(output, packet[IP].src, packet[IP].dst, packet[UDP].sport, packet[UDP].dport, packet[UDP].payload.load, False, False)
+  except Exception as error:
+    if (Debug):
+      print(error)
 
 def main(args):
-  global AATableOpcode
+  global AATableOpcode, SavedAA
 
   if (len(args) < 2):
     print ('Usage: ' + args[0] + ' <pcap file>')
@@ -531,35 +533,25 @@ def main(args):
     output = open(OutputFile, 'w')
 
     try:
-      count = 0
       print('Reading %s' % args[1])
       packets = rdpcap(args[1])
-      for packet in packets:
-        if (UDP in packet and len(packet[UDP].payload) > 2):
-          result = handlePacket(output, packet[IP].src, packet[IP].dst, packet[UDP].sport, packet[UDP].dport, packet[UDP].payload.load, False, False)
-          if (result == 0):
-            count += 1
 
-      if (count > 0):
-        print('Saved data for %d AAs to %s' % (count, OutputFile))
+      for packet in packets:
+        processPacket(packet, output)
+      if (SavedAA > 0):
+        print('Saved data for %d AAs to %s' % (SavedAA, OutputFile))
       else:
         print('No AAs found using opcode: %s, searching for updated opcode' % hex(AATableOpcode))
         AATableOpcode = 0
         for packet in packets:
-          if (UDP in packet and len(packet[UDP].payload) > 2):
-            result = handlePacket(output, packet[IP].src, packet[IP].dst, packet[UDP].sport, packet[UDP].dport, packet[UDP].payload.load, False, False)
-            if (result == 2):
-              break
+          processPacket(packet, output)
         if (AATableOpcode > 0):
           print('Found likely opcode: %s, trying to parse AA data again' % hex(AATableOpcode))
+          SavedAA = 0
           for packet in packets:
-            if (UDP in packet and len(packet[UDP].payload) > 2):
-              result = handlePacket(output, packet[IP].src, packet[IP].dst, packet[UDP].sport, packet[UDP].dport, packet[UDP].payload.load, False, False)
-              if (result == 0):
-                count += 1
-
-          if (count > 0):
-            print('Saved data for %d AAs to %s' % (count, OutputFile))
+            processPacket(packet, output)
+          if (SavedAA > 0):
+            print('Saved data for %d AAs to %s' % (SavedAA, OutputFile))
             print('Update the default opcode to speed up this process in the future')
           else:
             print('AA Format has most likely changed and can not be parsed')
