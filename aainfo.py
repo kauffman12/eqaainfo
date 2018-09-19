@@ -6,6 +6,7 @@
 # Updated parsing of the AA format to work with the Test Server as of 9/11/2018
 #
 
+import os
 import re
 import zlib
 from scapy.all import *
@@ -16,9 +17,10 @@ DBStringsFile = 'data/dbstr_us.txt'
 DBSpellsFile = 'data/spells_us.txt'
 Debug = False
 
-AATypes = ['Unknown', 'General', 'Archetype', 'Class', 'Special', 'Focus']
 # list of classes in bitmask order
-ClassList = [ 'BerNotUsedHere', 'War', 'Clr', 'Pal', 'Rng', 'SK', 'Dru', 'Mnk', 'Brd', 'Rog', 'Shm', 'Nec', 'Wiz', 'Mag', 'Enc', 'Bst' ]
+ClassList = ['BerNotUsedHere', 'War', 'Clr', 'Pal', 'Rng', 'SK', 'Dru', 'Mnk', 'Brd', 'Rog', 'Shm', 'Nec', 'Wiz', 'Mag', 'Enc', 'Bst']
+Types = ['Unknown', 'General', 'Archetype', 'Class', 'Special', 'Focus']
+Categories = ['', '', 'Progression', '', '', 'Veteran Reward', 'Tradeskill', 'Expendable', 'Racial Innate', 'Everquest', '', 'Item Effect']
 
 # Slot 1/SPA info used to search for the AATableOpcode if it is unknown
 # Everyone has these and rank 1 seems to show up after a /resetAA
@@ -160,9 +162,9 @@ def processCache(output, direction):
 def findOpcode(opcode, buffer):
   global AATableOpcode
 
-  # eliminate packets too small for an AA
+  # eliminate packets obviously too small for an AA
   size = len(buffer)
-  if (size >= 140):
+  if (size >= 100):
     found = False
     for aa in WellKnownAAList:
       start = 0
@@ -177,14 +179,15 @@ def findOpcode(opcode, buffer):
 
 def handleAppPacket(output, srcIP, dstIP, srcPort, dstPort, opcode, size, bytes, pos, direction):
   global SavedAA
-  if (AATableOpcode == 0):
-    findOpcode(opcode, list(bytes[pos:]))
+  direction = getDirection(srcIP, dstIP, srcPort, dstPort)
 
-  if (AATableOpcode != 0 and opcode == AATableOpcode and getDirection(srcIP, dstIP, srcPort, dstPort) == ServerToClient):
+  if (ServerToClient == direction and AATableOpcode == 0):
+    findOpcode(opcode, list(bytes[pos:]))
+  elif (ServerToClient == direction and AATableOpcode != 0 and opcode == AATableOpcode):
     try:
-      buffer = list(bytes[pos:])
+      buffer = list(bytes[pos:pos+size])
       descID = readInt32(buffer)
-      readByte(buffer)
+      readByte(buffer) # always 1
       hotKeySID = readInt32(buffer)
       hotKeySID2 = readInt32(buffer)
       titleSID = readInt32(buffer)
@@ -216,7 +219,7 @@ def handleAppPacket(output, srcIP, dstIP, srcPort, dstPort, opcode, size, bytes,
 
       type = readUInt32(buffer)
       spellID = readInt32(buffer)
-      readUInt32(buffer) # unknown
+      readUInt32(buffer) # always 1
       abilityTimer = readUInt32(buffer)
       refreshTime = readUInt32(buffer)
       classMask = readUInt16(buffer)
@@ -227,8 +230,11 @@ def handleAppPacket(output, srcIP, dstIP, srcPort, dstPort, opcode, size, bytes,
       totalCost = readUInt32(buffer)
       readBytes(buffer, 10) # unknown
       expansion = readUInt32(buffer)
-      specialCat = readInt32(buffer)
-      readBytes(buffer, 13) # unknown
+      category = readInt32(buffer)
+      readBytes(buffer, 4) #unknown
+      expansion2 = readUInt32(buffer) # request expansion? not always set
+      maxActivationLevel = readUInt32(buffer) # set for gylphs too low level to use
+      isGlyph = readByte(buffer)
       spaCount = readUInt32(buffer)
 
       # lookup Title from DB
@@ -242,8 +248,11 @@ def handleAppPacket(output, srcIP, dstIP, srcPort, dstPort, opcode, size, bytes,
 
       output.write('Ability: \t%s\n' % title)
       output.write('Activation ID: \t%d\n' % aaID)
+
       if (type > -1):
-        output.write('Category: \t%s\n' % AATypes[type])
+        output.write('Category: \t%s\n' % Types[type])
+      if (category > -1):
+        output.write('Category2: \t%s\n' % Categories[category])
 
       # list of classes
       classes = []
@@ -276,6 +285,7 @@ def handleAppPacket(output, srcIP, dstIP, srcPort, dstPort, opcode, size, bytes,
         if (spellName == None):
           spellName = spellID
         output.write('Spell: \t\t%s\n' % spellName)
+
       output.write('Total Cost: \t%d AAs\n' % totalCost)
       output.write('Description: \t%s\n' % descID)
 
@@ -530,14 +540,14 @@ def main(args):
   else:
     loadDBStrings()
     loadDBSpells()
-    output = open(OutputFile, 'w')
 
     try:
       print('Reading %s' % args[1])
       packets = rdpcap(args[1])
-
+      output = open(OutputFile, 'w')
       for packet in packets:
         processPacket(packet, output)
+      output.close()
       if (SavedAA > 0):
         print('Saved data for %d AAs to %s' % (SavedAA, OutputFile))
       else:
@@ -548,8 +558,11 @@ def main(args):
         if (AATableOpcode > 0):
           print('Found likely opcode: %s, trying to parse AA data again' % hex(AATableOpcode))
           SavedAA = 0
+          os.remove(OutputFile)
+          output = open(OutputFile, 'w')
           for packet in packets:
             processPacket(packet, output)
+          output.close()
           if (SavedAA > 0):
             print('Saved data for %d AAs to %s' % (SavedAA, OutputFile))
             print('Update the default opcode to speed up this process in the future')
@@ -559,5 +572,4 @@ def main(args):
             print('Could not find opcode, giving up')
     except Exception as error:
       print(error)
-    output.close()
 main(sys.argv)
