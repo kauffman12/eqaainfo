@@ -1,5 +1,5 @@
-# Script for reading network stream from PCAP recording and attempting to parse Everquest AA data
 #
+# Script for reading network stream from PCAP recording and attempting to parse Everquest AA data
 # Currently works with Test Server as of 9/11/2018
 #
 
