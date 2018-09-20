@@ -4,10 +4,9 @@
 #
 
 import io
-import os
 import re
 import sys
-import eqreader
+from lib import eqreader
 
 AATableOpcode = 0x41a4
 OutputFile = 'aainfo.txt'
