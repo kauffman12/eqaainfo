@@ -164,7 +164,7 @@ def handleEQPacket(opcode, size, bytes, pos):
       category = readInt32(buffer)
       readBytes(buffer, 4) #unknown
       expansion2 = readUInt32(buffer) # required expansion? it's not always set
-      maxActivationLevel = readUInt32(buffer) # set for gylphs too low level to use
+      maxActivationLevel = readUInt32(buffer) # max player level that can use the AA
       isGlyph = readByte(buffer)
       spaCount = readUInt32(buffer)
 
