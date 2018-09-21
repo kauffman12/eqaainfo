@@ -12,7 +12,6 @@ AATableOpcode = 0x41a4
 OutputFile = 'aainfo.txt'
 DBStringsFile = 'data/dbstr_us.txt'
 DBSpellsFile = 'data/spells_us.txt'
-Debug = False
 
 Categories = ['', '', 'Progression', '', '', 'Veteran Reward', 'Tradeskill', 'Expendable', 'Racial Innate', 'Everquest', '', 'Item Effect']
 # list of classes in bitmask order
@@ -267,9 +266,8 @@ def handleEQPacket(opcode, size, bytes, pos):
       output.write('\n')
       AAData[title] = output.getvalue()
       output.close()
-    except Exception as error:
-      if (Debug):
-        print(error)
+    except TypeError as error:
+      print(error)
 
 def saveAAData():
   file = open(OutputFile, 'w')
@@ -300,7 +298,7 @@ def main(args):
         if (AATableOpcode > 0):
           print('Found likely opcode: %s, trying to parse AA data again' % hex(AATableOpcode))
           AAData = dict()
-          errors = eqreader.readPcap(handleEQPacket, args[1])
+          eqreader.readPcap(handleEQPacket, args[1])
           if (len(AAData) > 0):
             saveAAData()
             print('Saved data for %d AAs to %s' % (len(AAData), OutputFile))
@@ -312,7 +310,4 @@ def main(args):
     except Exception as error:
       print(error)
 
-    if (Debug and len(errors) > 0):
-      for e in errors:
-        print(e)
 main(sys.argv)

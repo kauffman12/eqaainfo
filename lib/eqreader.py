@@ -13,7 +13,6 @@ FragmentSeq = [-1, -1]
 FragmentedPacketSize = [0, 0]
 FragmentedBytesCollected = [0, 0]
 Fragments = [[]] * 2
-Errors = []
 
 def getDirection(srcIP, dstIP, srcPort, dstPort):
   direction = UnknownDirection
@@ -67,20 +66,20 @@ def processCache(callback, direction):
   key = 'seq=%d&dir=%d' % (seq, direction)
   entry = Cache.get(key)
 
-  if (entry != None):
+  while (entry != None):
     if (direction == ServerToClient):
       processPacket(callback, ServerIP, ClientIP, ServerPort, ClientPort, entry['bytes'], entry['isSubPacket'], True)
     elif (direction == ClientToServer):
       processPacket(callback, ClientIP, ServerIP, ClientPort, ServerPort, entry['bytes'], entry['isSubPacket'], True)
     del Cache[key]
-    processCache(callback, direction)
+    entry = Cache.get(key)
 
 def processAppPacket(callback, srcIP, dstIP, srcPort, dstPort, opcode, size, bytes, pos, direction):
   if (ServerToClient == direction):
     callback(opcode, size, bytes, pos)
 
 def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket, isCached):
-  global CryptoFlag, FragmentSeq, Fragments, FragmentedPacketSize, FragmentedBytesCollected, Errors
+  global CryptoFlag, FragmentSeq, Fragments, FragmentedPacketSize, FragmentedBytesCollected
   opcode = bytes[0] * 256 + bytes[1]
 
   direction = getDirection(srcIP, dstIP, srcPort, dstPort)
@@ -124,19 +123,21 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket, 
       seq = uncompressed[0] * 256 + uncompressed[1]
       expected = getSequence(direction)
 
-      if (seq != expected and seq > expected):
-        if (seq - expected < 1000):
-          addToCache(seq, direction, bytes, isSubPacket)
-        else:
-          FragmentSeq[direction] = -1
-          advanceSequence(direction)
-        raise TypeError('Packet: Missing expected fragment')
+      if (seq != expected):
+        if (seq > expected):
+          if (seq - expected < 1000):
+            addToCache(seq, direction, bytes, isSubPacket)
+          else:
+            FragmentSeq[direction] = -1
+            advanceSequence(direction)
+            raise TypeError('Packet: Missing expected fragment')
+        raise StopIteration()
       else:
         advanceSequence(direction)
 
       if (uncompressed[2] == 0x00 and uncompressed[3] == 0x19):
         pos = 4
-        while (pos < len(uncompressed) - 2):
+        while (pos < len(uncompressed) - 3):
           size = 0
           opcodeBytes = 2
 
@@ -186,8 +187,9 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket, 
             else:
               FragmentSeq[direction] = -1
               advanceSequence(direction)
+              raise TypeError('Fragment: Missing expected fragment 1')
           FragmentSeq[direction] = -1
-          raise TypeError('Fragment: Missing expected fragment 1')
+          raise StopIteration()
         else:
           advanceSequence(direction)
 
@@ -195,6 +197,7 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket, 
 
         if (FragmentedPacketSize[direction] == 0 or FragmentedPacketSize[direction] > 1000000):
           FragmentSeq[direction] = -1
+          raise TypeError('Got a fragmented packet of size ' + str(FragmentedPacketSize[direction]) + ' and discarding')
         else:
           FragmentedBytesCollected[direction] = len(uncompressed) - 6
           if (len(uncompressed) - 6 > FragmentedPacketSize[direction]):
@@ -216,7 +219,8 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket, 
             else:
               advanceSequence(direction);
               FragmentSeq[direction] = -1
-          raise TypeError('Fragment: Missing expected fragment 2')
+              raise TypeError('Fragment: Missing expected fragment 2')
+          raise StopIteration()
         else:
           advanceSequence(direction)
 
@@ -287,21 +291,23 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket, 
           appOpcode = bytes[2] * 256 + bytes[0] 
           newPacket = bytes[3:]
       processAppPacket(callback, srcIP, dstIP, srcPort, dstPort, appOpcode, len(newPacket), newPacket, 0, direction)
-  except Exception as error:
-    Errors.append(error)
+  except TypeError as error:
+    pass #print(error)
+  except StopIteration as stoppping:
+    pass
+  except Exception as other:
+    #traceback.print_exc()
+    print(error)
 
   if (not isCached and len(Cache) > 0):
     processCache(callback, ServerToClient)
     processCache(callback, ClientToServer)
 
 def readPcap(callback, pcap):
-  global Errors
   for packet in rdpcap(pcap):
     try:
-      if (UDP in packet and len(packet[UDP].payload) > 2):
+      if (UDP in packet and Raw in packet and len(packet[UDP].payload) > 2):
         processPacket(callback, packet[IP].src, packet[IP].dst, packet[UDP].sport, packet[UDP].dport, packet[UDP].payload.load, False, False)
     except Exception as error:
-      # payload.load sometimes throws load exception, need to look into better 
-      Errors.append(error)
-
-  return Errors
+      #traceback.print_exc()
+      print(error)
