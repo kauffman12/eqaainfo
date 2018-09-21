@@ -14,10 +14,14 @@ DBStringsFile = 'data/dbstr_us.txt'
 DBSpellsFile = 'data/spells_us.txt'
 Debug = False
 
-# list of classes in bitmask order
-ClassList = ['BerNotUsedHere', 'War', 'Clr', 'Pal', 'Rng', 'SK', 'Dru', 'Mnk', 'Brd', 'Rog', 'Shm', 'Nec', 'Wiz', 'Mag', 'Enc', 'Bst']
-Types = ['Unknown', 'General', 'Archetype', 'Class', 'Special', 'Focus']
 Categories = ['', '', 'Progression', '', '', 'Veteran Reward', 'Tradeskill', 'Expendable', 'Racial Innate', 'Everquest', '', 'Item Effect']
+# list of classes in bitmask order
+ClassList = ['BerNotUsedHere', 'War', 'Clr', 'Pal', 'Rng', 'Shd', 'Dru', 'Mnk', 'Brd', 'Rog', 'Shm', 'Nec', 'Wiz', 'Mag', 'Enc', 'Bst']
+Expansions = ['Classic', 'Ruins of Kunark', 'The Scars of Velious', 'The Shadows of Luclin', 'The Planes of Power', 'The Legacy of Ykesha',
+'Lost Dungeons of Norrath', 'Gates of Discord', 'Omens of War', 'Dragons of Norrath', 'Depths of Darkhollow', 'Prophecy of Ro',
+'The Serpent\'s Spine', 'The Buried Sea', 'Secrets of Faydwer', 'Seeds of Destruction', 'Underfoot', 'House of Thule', 'Veil of Alaris',
+'Rain of Fear', 'Call of the Forsaken', 'The Darkened Sea', 'The Broken Mirror', 'Empires of Kunark', 'Ring of Scale']
+Types = ['Unknown', 'General', 'Archetype', 'Class', 'Special', 'Focus']
 
 # Slot 1/SPA info used to search for the AATableOpcode if it is unknown
 # Everyone has these and rank 1 seems to show up after a /resetAA
@@ -27,7 +31,8 @@ WellKnownAAList = [
 ]
 
 AAData = dict()
-DBStrings = dict()
+DBDescStrings = dict()
+DBTitleStrings = dict()
 DBSpells = dict()
 
 # Pulls all Titles from EQ DB files. 
@@ -37,13 +42,20 @@ def loadDBStrings():
     print('Loading Strings DB from %s' % DBStringsFile)
     db = open(DBStringsFile, 'r')
     for line in db:
-      result = re.match(r'^(\d+)\^[1]\^([\w\s\'\-\(\)\:\+]+?)\^[0]\^$', line)
-      if (result != None):
-        DBStrings[int(result.group(1))] = result.group(2)
-    if (len(DBStrings) > 0):
-      print('Found %d entries' % len(DBStrings))
+      result = re.match(r'^(\d+)\^(\d)\^([\w\s\'\-\(\)\:\+\.\,\"\/\%\#\<\>]+?)\^[0]\^$', line)
+      if (result != None and result.group(2) == '1'):
+        DBTitleStrings[int(result.group(1))] = result.group(3)
+      elif (result != None and result.group(2) == '4'):
+        DBDescStrings[int(result.group(1))] = result.group(3)
+        
+    if (len(DBTitleStrings) > 0):
+      print('Found %d titles' % len(DBTitleStrings))
     else:
-      print('No data found, copy over latest from your EQ directory?')
+      print('No titles found, copy over latest from your EQ directory?')
+    if (len(DBDescStrings) > 0):
+      print('Found %d descriptions' % len(DBDescStrings))
+    else:
+      print('No descriptions found, copy over latest from your EQ directory?')
   except Exception as error:
     print(error)
 
@@ -172,22 +184,22 @@ def handleEQPacket(opcode, size, bytes, pos):
       if (titleSID == -1):
         raise TypeError('handleEQPacket: Bad AA format, missing title')
 
-      title = DBStrings.get(titleSID) 
+      title = DBTitleStrings.get(titleSID) 
       if (title == None):
         title = str(titleSID)
-        if (len(DBStrings) > 0):
+        if (len(DBTitleStrings) > 0):
           print('AA Title not found in DB, possible problem parsing data (format change?)')
-      if (rank > 1):
+      if (rank > 0):
         title = '%s (%d)' % (title, rank)
 
       output = io.StringIO()
-      output.write('Ability: \t%s\n' % title)
-      output.write('Activation ID: \t%d\n' % aaID)
+      output.write('Ability:         %s\n' % title)
+      output.write('Activation ID:   %d\n' % aaID)
 
       if (type > -1):
-        output.write('Category: \t%s\n' % Types[type])
+        output.write('Category:        %s\n' % Types[type])
       if (category > -1):
-        output.write('Category2: \t%s\n' % Categories[category])
+        output.write('Category2:       %s\n' % Categories[category])
 
       # list of classes
       classes = []
@@ -199,19 +211,26 @@ def handleEQPacket(opcode, size, bytes, pos):
         classes.append('Ber')
 
       if (len(classes) == len(ClassList)):
-        output.write('Classes: \tAll\n')
+        output.write('Classes:         All\n')
       else:
         classes.sort()
-        output.write('Classes: \t%s\n' % ' '.join(classes))
+        output.write('Classes:         %s\n' % ' '.join(classes))
 
-      output.write('Expansion: \t%d\n' % expansion)
-      output.write('Level: \t\t%d\n' % reqLevel)
-      output.write('Rank: \t\t%d / %d\n' % (rank, maxRank))
-      output.write('Rank Cost: \t%d AAs\n' % cost)
+      if (expansion >= 0 and expansion < len(Expansions)):
+        expansion = Expansions[expansion]
+      output.write('Expansion:       %s\n' % expansion)
+
+      if (maxActivationLevel > 0):
+        output.write('Max Level:       %d\n' % maxActivationLevel)
+      output.write('Min Level:       %d\n' % reqLevel)
+      output.write('Rank:            %d / %d\n' % (rank, maxRank))
+      output.write('Rank Cost:       %d AAs\n' % cost)
 
       if (refreshTime > 0):
-        output.write('Reuse Time: \t%ds\n' % refreshTime)
-        output.write('Timer ID: \t%d\n' % abilityTimer)
+        output.write('Reuse Time:      %ds\n' % refreshTime)
+        output.write('Timer ID:        %d\n' % abilityTimer)
+      else:
+        output.write('Reuse Time:      Passive\n')
 
       if (spellID > 0):
         spellName = DBSpells.get(spellID)
@@ -219,13 +238,14 @@ def handleEQPacket(opcode, size, bytes, pos):
           print('Spell Title not found in DB for %d, possible problem parsing data (format change?)' % spellID)
         if (spellName == None):
           spellName = spellID
-        output.write('Spell: \t\t%s\n' % spellName)
+        else:
+          spellName = '%s #%d' % (spellName, spellID)
+        output.write('Spell:           %s\n' % spellName)
 
-      output.write('Total Cost: \t%d AAs\n' % totalCost)
-      output.write('Description: \t%s\n' % descID)
+      output.write('Total Cost:      %d AAs\n' % totalCost)
 
       for i in range(len(reqRanks)):
-        output.write('Requirements: \tRank %d of AA/Skill: %d\n' % (reqRanks[i], reqSkills[i]))
+        output.write('Requirements:    Rank %d of AA/Skill: %d\n' % (reqRanks[i], reqSkills[i]))
 
       if (spaCount > 0):
         output.write('Found %d SPA Slots:\n' % spaCount)
@@ -235,9 +255,16 @@ def handleEQPacket(opcode, size, bytes, pos):
         base1 = readInt32(buffer)
         base2 = readInt32(buffer)
         slot = readUInt32(buffer)
-        output.write('\tSlot:\t%d\tSPA:\t%d\tBase1:\t%d\tBase2:\t%d\n' % (slot, spa, base1, base2))
-      output.write('\n')
+        output.write('   Slot:   %3d   SPA:   %3d   Base1:   %6d   Base2:   %6d\n' % (slot, spa, base1, base2))
 
+      desc = DBDescStrings.get(descSID2)
+      if (desc == None):
+        desc = descSID2 
+      else:
+        desc = '\n   ' + desc.replace('<br><br>', '\n   ').replace('<br>', '\n   ')
+      output.write('Description:    %s\n' % desc)
+
+      output.write('\n')
       AAData[title] = output.getvalue()
       output.close()
     except Exception as error:
