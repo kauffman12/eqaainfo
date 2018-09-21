@@ -267,7 +267,7 @@ def handleEQPacket(opcode, size, bytes, pos):
       AAData[title] = output.getvalue()
       output.close()
     except TypeError as error:
-      print(error)
+      pass #print(error)
 
 def saveAAData():
   file = open(OutputFile, 'w')
