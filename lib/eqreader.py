@@ -8,10 +8,10 @@ from scapy.all import *
 ClientToServer = 0
 ServerToClient = 1
 UnknownDirection = 2
-FragmentSeq = [-1, -1]
-FragmentedPacketSize = [0, 0]
-FragmentedBytesCollected = [0, 0]
-Fragments = [[]] * 2
+FragmentSeq = -1
+FragmentedPacketSize = 0
+FragmentedBytesCollected = 0
+Fragments = []
 
 def getUInt16(buffer, offset):
   value = buffer[offset:offset+2]
@@ -46,7 +46,7 @@ def getDirection(srcIP, dstIP, srcPort, dstPort):
       direction = ClientToServer
   return direction
 
-def findAppPacket(callback, uncompressed, direction):
+def findAppPacket(callback, uncompressed):
   if (uncompressed[0] == 0x00 and uncompressed[1] == 0x19):
     pos = 2
     while (pos < len(uncompressed)):
@@ -59,19 +59,19 @@ def findAppPacket(callback, uncompressed, direction):
 
       appOpcode = getUInt16(uncompressed, pos)
       newPacket = uncompressed[pos+2:]
-      callback(appOpcode, len(newPacket), newPacket, 0, ServerToClient == direction)    
+      callback(appOpcode, len(newPacket), newPacket, 0)    
       pos += size + 2 
   else:
     appOpcode = getUInt16(uncompressed, 0)
     newPacket = uncompressed[2:]
-    callback(appOpcode, len(newPacket), newPacket, 0, ServerToClient == direction) 
+    callback(appOpcode, len(newPacket), newPacket, 0) 
 
 def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket):
   global CryptoFlag, FragmentSeq, Fragments, FragmentedPacketSize, FragmentedBytesCollected
   opcode = getBUInt16(bytes, 0)
 
   direction = getDirection(srcIP, dstIP, srcPort, dstPort)
-  if (direction == UnknownDirection and opcode != 1):
+  if ((direction == UnknownDirection and opcode != 0x01) or (direction == ClientToServer and opcode != 0x02)):
     return
 
   # Check if this is a UCS connection and if so, skip packets until we see another Session Request
@@ -81,8 +81,8 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket):
   try:
     # Session Request
     if (opcode == 0x01):
-      global ClientIP, ClientPort, ServerIP, ServerPort, ClientSEQ, ServerSEQ
-      CryptoFlag = ClientSEQ = ServerSEQ = 0
+      global ClientIP, ClientPort, ServerIP, ServerPort
+      CryptoFlag = 0
       ClientIP = srcIP
       ClientPort = srcPort
       ServerIP = dstIP
@@ -107,44 +107,44 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket):
     # Packet
     elif (opcode == 0x09):
       uncompressed = uncompress(bytes, isSubPacket, True)
-      findAppPacket(callback, uncompressed[2:], direction) 
+      findAppPacket(callback, uncompressed[2:]) 
 
     # Fragment
     elif (opcode == 0x0d):
       uncompressed = uncompress(bytes, isSubPacket, True)
 
-      if (FragmentSeq[direction] == -1):
-        FragmentSeq[direction] = getBUInt16(uncompressed, 0)
-        FragmentedPacketSize[direction] = getBUInt32(uncompressed, 2)
+      if (FragmentSeq == -1):
+        FragmentSeq = getBUInt16(uncompressed, 0)
+        FragmentedPacketSize = getBUInt32(uncompressed, 2)
 
-        if (FragmentedPacketSize[direction] == 0 or FragmentedPacketSize[direction] > 1000000):
-          FragmentSeq[direction] = -1
-          raise StopIteration('Got a fragmented packet of size ' + str(FragmentedPacketSize[direction]) + ' and discarding')
+        if (FragmentedPacketSize == 0 or FragmentedPacketSize > 1000000):
+          FragmentSeq = -1
+          raise StopIteration('Got a fragmented packet of size ' + str(FragmentedPacketSize) + ' and discarding')
         else:
-          FragmentedBytesCollected[direction] = len(uncompressed) - 6
-          if (len(uncompressed) - 6 > FragmentedPacketSize[direction]):
-            FragmentSeq[direction] = -1
+          FragmentedBytesCollected = len(uncompressed) - 6
+          if (len(uncompressed) - 6 > FragmentedPacketSize):
+            FragmentSeq = -1
             raise TypeError('Fragment: mangled fragment 1')
 
-          Fragments[direction] = bytearray(FragmentedPacketSize[direction])
+          Fragments = bytearray(FragmentedPacketSize)
           temp = uncompressed[6:]
-          Fragments[direction][0:len(temp)] = temp
+          Fragments[0:len(temp)] = temp
       else:
-        FragmentSeq[direction] = getBUInt16(uncompressed, 0)
+        FragmentSeq = getBUInt16(uncompressed, 0)
         newPacket = uncompressed[2:]
 
-        if (len(newPacket) > len(Fragments[direction]) - FragmentedBytesCollected[direction]):
-          FragmentSeq[direction] = -1
+        if (len(newPacket) > len(Fragments) - FragmentedBytesCollected):
+          FragmentSeq = -1
           raise TypeError('Fragment: mangled fragment 2')
 
-        index = FragmentedBytesCollected[direction]
+        index = FragmentedBytesCollected
         newPacketSize = len(newPacket)   
-        Fragments[direction][index:index+newPacketSize] = newPacket
-        FragmentedBytesCollected[direction] += newPacketSize
+        Fragments[index:index+newPacketSize] = newPacket
+        FragmentedBytesCollected += newPacketSize
 
-        if (FragmentedBytesCollected[direction] == FragmentedPacketSize[direction]):
-          findAppPacket(callback, Fragments[direction], direction)
-          FragmentSeq[direction] = -1
+        if (FragmentedBytesCollected == FragmentedPacketSize):
+          findAppPacket(callback, Fragments)
+          FragmentSeq = -1
   except TypeError as error:
     print(error)
   except StopIteration as stopInfo:
