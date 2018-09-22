@@ -66,7 +66,7 @@ def findAppPacket(callback, uncompressed, direction):
     newPacket = uncompressed[2:]
     callback(appOpcode, len(newPacket), newPacket, 0, ServerToClient == direction) 
 
-def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket, isCached):
+def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket):
   global CryptoFlag, FragmentSeq, Fragments, FragmentedPacketSize, FragmentedBytesCollected
   opcode = getBUInt16(bytes, 0)
 
@@ -101,7 +101,7 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket, 
         size = uncompressed[pos]
         pos += 1
         newPacket = uncompressed[pos:size+pos]
-        processPacket(callback, srcIP, dstIP, srcPort, dstPort, newPacket, True, isCached)
+        processPacket(callback, srcIP, dstIP, srcPort, dstPort, newPacket, True)
         pos += size
 
     # Packet
@@ -156,6 +156,6 @@ def readPcap(callback, pcap):
   for packet in rdpcap(pcap):
     try:
       if (UDP in packet and Raw in packet and len(packet[UDP].payload) > 2):
-        processPacket(callback, packet[IP].src, packet[IP].dst, packet[UDP].sport, packet[UDP].dport, packet[UDP].payload.load, False, False)
+        processPacket(callback, packet[IP].src, packet[IP].dst, packet[UDP].sport, packet[UDP].dport, packet[UDP].payload.load, False)
     except Exception as error:
       print(error)
