@@ -51,16 +51,16 @@ def findAppPacket(callback, uncompressed):
     pos = 2
     while (pos < len(uncompressed)):
       if (uncompressed[pos] == 0xff):
-        size = getBUInt16(uncompressed, pos + 1) - 2
+        size = getBUInt16(uncompressed, pos + 1)
         pos += 3
       else:
-        size = uncompressed[pos] - 2
+        size = uncompressed[pos]
         pos += 1
 
       appOpcode = getUInt16(uncompressed, pos)
       newPacket = uncompressed[pos+2:]
       callback(appOpcode, len(newPacket), newPacket, 0)    
-      pos += size + 2 
+      pos += size 
   else:
     appOpcode = getUInt16(uncompressed, 0)
     newPacket = uncompressed[2:]
