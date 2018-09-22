@@ -112,15 +112,15 @@ def readUInt32(buffer):
   del buffer[0:4]
   return int.from_bytes(value, 'little', signed=False)
 
-def handleEQPacket(opcode, size, bytes, pos):
+def handleEQPacket(opcode, size, bytes, pos, serverToClient):
   global AAData
 
   # handle search for opcode
-  if (AATableOpcode == 0):
+  if (serverToClient and AATableOpcode == 0):
     findOpcode(opcode, list(bytes[pos:]))
 
   # save an AA if the opcode is correct
-  elif (AATableOpcode != 0 and opcode == AATableOpcode):
+  elif (serverToClient and AATableOpcode != 0 and opcode == AATableOpcode):
     try:
       buffer = list(bytes[pos:pos+size])
       descID = readInt32(buffer)

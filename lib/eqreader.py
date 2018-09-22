@@ -14,13 +14,17 @@ FragmentedPacketSize = [0, 0]
 FragmentedBytesCollected = [0, 0]
 Fragments = [[]] * 2
 
+def getUInt16(buffer, offset):
+  value = buffer[offset:offset+2]
+  return int.from_bytes(value, 'little', signed=False)
+
 def getBUInt16(buffer, offset):
   value = buffer[offset:offset+2]
   return int.from_bytes(value, 'big', signed=False)
 
-def getUInt16(buffer, offset):
-  value = buffer[offset:offset+2]
-  return int.from_bytes(value, 'little', signed=False)
+def getBUInt32(buffer, offset):
+  value = buffer[offset:offset+4]
+  return int.from_bytes(value, 'big', signed=False)
 
 def getDirection(srcIP, dstIP, srcPort, dstPort):
   direction = UnknownDirection
@@ -80,9 +84,20 @@ def processCache(callback, direction):
     del Cache[key]
     entry = Cache.get(key)
 
-def processAppPacket(callback, srcIP, dstIP, srcPort, dstPort, opcode, size, bytes, pos, direction):
-  if (ServerToClient == direction):
-    callback(opcode, size, bytes, pos)
+def findAppPacket(callback, uncompressed, direction):
+  pos = 2
+  while (pos < len(uncompressed)):
+    if (uncompressed[pos] == 0xff):
+      size = getBUInt16(uncompressed, pos + 1) - 2
+      pos += 3
+    else:
+      size = uncompressed[pos] - 2
+      pos += 1
+
+    appOpcode = getUInt16(uncompressed, pos)
+    pos += 2
+    callback(appOpcode, size, uncompressed, pos, ServerToClient == direction)    
+    pos += size
 
 def validateSequence(seq, direction, bytes, isSubPacket, resetToError):
   expected = getSequence(direction)
@@ -115,13 +130,13 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket, 
 
   try:
     # Session Request
-    if (opcode == 1):
+    if (opcode == 0x01):
       global ClientIP, ClientPort, ServerIP, ServerPort, ClientSEQ, ServerSEQ
+      CryptoFlag = ClientSEQ = ServerSEQ = 0
       ClientIP = srcIP
       ClientPort = srcPort
       ServerIP = dstIP
       ServerPort = dstPort
-      CryptoFlag = ClientSEQ = ServerSEQ = 0
 
     # Session Response
     elif (opcode == 0x02):
@@ -129,14 +144,13 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket, 
 
     # Combined 
     elif (opcode == 0x03):
-      pos = 0
       uncompressed = uncompress(bytes, opcode, isSubPacket, 0)
 
+      pos = 0
       while (pos < len(uncompressed) - 2):
         isSubPacketSize = uncompressed[pos]
-        pos += 1
-        newPacket = uncompressed[pos:isSubPacketSize + pos]
-        pos += isSubPacketSize
+        newPacket = uncompressed[pos + 1:isSubPacketSize + pos + 1]
+        pos += isSubPacketSize + 1
         processPacket(callback, srcIP, dstIP, srcPort, dstPort, newPacket, True, isCached)
 
     # Packet
@@ -146,22 +160,10 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket, 
       validateSequence(seq, direction, bytes, isSubPacket, False)
 
       if (uncompressed[2] == 0x00 and uncompressed[3] == 0x19):
-        pos = 4
-        while (pos < len(uncompressed) - 2):
-          if (uncompressed[pos] == 0xff):
-            size = getBUInt16(uncompressed, pos + 1) - 2
-            pos += 3
-          else:
-            size = uncompressed[pos] - 2
-            pos += 1
-
-          appOpcode = getUInt16(uncompressed, pos)
-          pos += 2
-          processAppPacket(callback, srcIP, dstIP, srcPort, dstPort, appOpcode, size, uncompressed, pos, direction)
-          pos += size
+        findAppPacket(callback, uncompressed[2:], direction)
       else:
         appOpcode = getUInt16(uncompressed, 2)
-        processAppPacket(callback, srcIP, dstIP, srcPort, dstPort, appOpcode, len(uncompressed) - 4, uncompressed, 4, direction)       
+        callback(appOpcode, len(uncompressed) - 4, uncompressed, 4, ServerToClient == direction)     
 
     # Fragment
     elif (opcode == 0x0d):
@@ -170,7 +172,7 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket, 
       if (FragmentSeq[direction] == -1):
         FragmentSeq[direction] = getBUInt16(uncompressed, 0)
         validateSequence(FragmentSeq[direction], direction, bytes, isSubPacket, True)
-        FragmentedPacketSize[direction] = uncompressed[2] * 0x1000000 + uncompressed[3] * 0x10000 + uncompressed[4] * 0x100 + uncompressed[5]
+        FragmentedPacketSize[direction] = getBUInt32(uncompressed, 2)
 
         if (FragmentedPacketSize[direction] == 0 or FragmentedPacketSize[direction] > 1000000):
           FragmentSeq[direction] = -1
@@ -200,23 +202,11 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket, 
 
         if (FragmentedBytesCollected[direction] == FragmentedPacketSize[direction]):
           if (Fragments[direction][0] == 0x00 and Fragments[1][direction] == 0x019):
-            pos = 2
-            while (pos < len(Fragments[direction])):
-              if (Fragments[direction][pos] == 0xff):
-                size = getBUInt16(Fragments[direction], pos + 1) - 2     
-                pos += 3
-              else:
-                size = Fragments[direction][pos] - 2
-                pos += 1
-
-              appOpcode = getUInt16(Fragments[direction], pos)
-              pos += 2
-              processAppPacket(callback, srcIP, dstIP, srcPort, dstPort, appOpcode, size, Fragments[direction], pos, direction)
-              pos += size
+            findAppPacket(callback, Fragments[direction], direction)
           else:
             appOpcode = getUInt16(Fragments[direction], 0)
             newPacket = Fragments[direction][2:len(Fragments[direction]) - 2]
-            processAppPacket(callback, srcIP, dstIP, srcPort, dstPort, appOpcode, len(newPacket), newPacket, 0, direction)
+            callback(appOpcode, len(newPacket), newPacket, 0, ServerToClient == direction)
           FragmentSeq[direction] = -1
 
     # Unencapsulated EQ Application Opcode
@@ -232,14 +222,14 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket, 
         else:
           appOpcode = bytes[2] * 256 + bytes[0] 
           newPacket = bytes[3:]
-      processAppPacket(callback, srcIP, dstIP, srcPort, dstPort, appOpcode, len(newPacket), newPacket, 0, direction)
+      callback(appOpcode, len(newPacket), newPacket, 0, ServerToClient == direction)
   except TypeError as error:
     pass #print(error)
   except StopIteration as stoppping:
     pass
   except Exception as other:
     #traceback.print_exc()
-    print(error)
+    print(other)
 
   if (not isCached and len(Cache) > 0):
     processCache(callback, ServerToClient)
