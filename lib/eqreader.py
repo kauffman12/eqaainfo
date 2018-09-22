@@ -119,7 +119,7 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket):
 
         if (FragmentedPacketSize == 0 or FragmentedPacketSize > 1000000):
           FragmentSeq = -1
-          raise StopIteration('Got a fragmented packet of size ' + str(FragmentedPacketSize) + ' and discarding')
+          raise StopIteration('Got a fragmented packet of size ' + str(FragmentedPacketSize) + ', discarding')
         else:
           FragmentedBytesCollected = len(uncompressed) - 6
           if (len(uncompressed) - 6 > FragmentedPacketSize):
@@ -148,7 +148,7 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket):
   except TypeError as error:
     print(error)
   except StopIteration as stopInfo:
-    pass # print(stopInfo)
+    pass #print(stopInfo)
   except Exception as other:  
     print(other) #traceback.print_exc()
 
