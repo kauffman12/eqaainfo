@@ -267,6 +267,7 @@ def saveAAData():
   for key in sorted(AAData.keys()):
     file.write(AAData[key])
   file.close()
+  print('Saved data for %d AAs to %s' % (len(AAData), OutputFile))
 
 def main(args):
   global AATableOpcode, AAData
@@ -282,19 +283,16 @@ def main(args):
       eqreader.readPcap(handleEQPacket, args[1])
       if (len(AAData) > 0):
         saveAAData()
-        print('Saved data for %d AAs to %s' % (len(AAData), OutputFile))
       else:
         print('No AAs found using opcode: %s, searching for updated opcode' % hex(AATableOpcode))
         AATableOpcode = 0
         eqreader.readPcap(handleEQPacket, args[1])
-
         if (AATableOpcode > 0):
           print('Found likely opcode: %s, trying to parse AA data again' % hex(AATableOpcode))
           AAData = dict()
           eqreader.readPcap(handleEQPacket, args[1])
           if (len(AAData) > 0):
             saveAAData()
-            print('Saved data for %d AAs to %s' % (len(AAData), OutputFile))
             print('Update the default opcode to speed up this process in the future')
           else:
             print('AA Format has most likely changed and can not be parsed')
