@@ -14,6 +14,14 @@ FragmentedPacketSize = [0, 0]
 FragmentedBytesCollected = [0, 0]
 Fragments = [[]] * 2
 
+def getBUInt16(buffer, offset):
+  value = buffer[offset:offset+2]
+  return int.from_bytes(value, 'big', signed=False)
+
+def getUInt16(buffer, offset):
+  value = buffer[offset:offset+2]
+  return int.from_bytes(value, 'little', signed=False)
+
 def getDirection(srcIP, dstIP, srcPort, dstPort):
   direction = UnknownDirection
   if ('ServerIP' in globals() and 'ClientIP' in globals()):
@@ -76,9 +84,26 @@ def processAppPacket(callback, srcIP, dstIP, srcPort, dstPort, opcode, size, byt
   if (ServerToClient == direction):
     callback(opcode, size, bytes, pos)
 
+def validateSequence(seq, direction, bytes, isSubPacket, resetToError):
+  expected = getSequence(direction)
+  if (seq != expected):
+    if (seq > expected):
+      if (seq - expected < 1000):
+        addToCache(seq, direction, bytes, isSubPacket)
+      else:
+        FragmentSeq[direction] = -1
+        advanceSequence(direction);
+        raise TypeError('Fragment: Missing expected fragment')
+
+    if (resetToError):
+      FragmentSeq[direction] = -1
+    raise StopIteration()
+  else:
+    advanceSequence(direction)
+
 def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket, isCached):
   global CryptoFlag, FragmentSeq, Fragments, FragmentedPacketSize, FragmentedBytesCollected
-  opcode = bytes[0] * 256 + bytes[1]
+  opcode = getBUInt16(bytes, 0)
 
   direction = getDirection(srcIP, dstIP, srcPort, dstPort)
   if (direction == UnknownDirection and opcode != 1):
@@ -100,7 +125,7 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket, 
 
     # Session Response
     elif (opcode == 0x02):
-      CryptoFlag = bytes[11] + bytes[12] * 256
+      CryptoFlag = getUInt16(bytes, 11)
 
     # Combined 
     elif (opcode == 0x03):
@@ -117,81 +142,34 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket, 
     # Packet
     elif (opcode == 0x09):
       uncompressed = uncompress(bytes, opcode, isSubPacket, 2)
-      seq = uncompressed[0] * 256 + uncompressed[1]
-      expected = getSequence(direction)
-
-      if (seq != expected):
-        if (seq > expected):
-          if (seq - expected < 1000):
-            addToCache(seq, direction, bytes, isSubPacket)
-          else:
-            FragmentSeq[direction] = -1
-            advanceSequence(direction)
-            raise TypeError('Packet: Missing expected fragment')
-        raise StopIteration()
-      else:
-        advanceSequence(direction)
+      seq = getBUInt16(uncompressed, 0)
+      validateSequence(seq, direction, bytes, isSubPacket, False)
 
       if (uncompressed[2] == 0x00 and uncompressed[3] == 0x19):
         pos = 4
         while (pos < len(uncompressed) - 2):
-          size = 0
-          opcodeBytes = 2
-
           if (uncompressed[pos] == 0xff):
-            if (uncompressed[pos + 1] == 0x01):
-              size = 256 + uncompressed[pos + 2]
-            else:
-              size = uncompressed[pos + 2]
+            size = getBUInt16(uncompressed, pos + 1) - 2
             pos += 3
           else:
-            size = uncompressed[pos]
+            size = uncompressed[pos] - 2
             pos += 1
 
-          appOpcode = uncompressed[pos]
-          pos += 1
-
-          if (appOpcode == 0):
-            pos += 1
-            opcodeBytes = 3
-
-          appOpcode = appOpcode + uncompressed[pos] * 256
-          pos += 1
-          processAppPacket(callback, srcIP, dstIP, srcPort, dstPort, appOpcode, size - opcodeBytes, uncompressed, pos, direction)
-          pos += size - opcodeBytes
+          appOpcode = getUInt16(uncompressed, pos)
+          pos += 2
+          processAppPacket(callback, srcIP, dstIP, srcPort, dstPort, appOpcode, size, uncompressed, pos, direction)
+          pos += size
       else:
-        pos = opcodeBytes = 2
-        appOpcode = uncompressed[pos]
-        pos += 1
-
-        if (appOpcode == 0):
-          pos += 1
-          opcodeBytes = 3
-
-        appOpcode += uncompressed[pos] * 256
-        processAppPacket(callback, srcIP, dstIP, srcPort, dstPort, appOpcode, len(uncompressed) - 2 + opcodeBytes, uncompressed, pos + 1, direction)       
+        appOpcode = getUInt16(uncompressed, 2)
+        processAppPacket(callback, srcIP, dstIP, srcPort, dstPort, appOpcode, len(uncompressed) - 4, uncompressed, 4, direction)       
 
     # Fragment
     elif (opcode == 0x0d):
       uncompressed = uncompress(bytes, opcode, isSubPacket, 2)
 
       if (FragmentSeq[direction] == -1):
-        seq = getSequence(direction)
-        FragmentSeq[direction] = uncompressed[0] * 256 + uncompressed[1]
-
-        if (FragmentSeq[direction] != seq):
-          if (FragmentSeq[direction] > seq):                
-            if ((FragmentSeq[direction] - seq) < 1000):
-              addToCache(FragmentSeq[direction], direction, bytes, isSubPacket);
-            else:
-              FragmentSeq[direction] = -1
-              advanceSequence(direction)
-              raise TypeError('Fragment: Missing expected fragment 1')
-          FragmentSeq[direction] = -1
-          raise StopIteration()
-        else:
-          advanceSequence(direction)
-
+        FragmentSeq[direction] = getBUInt16(uncompressed, 0)
+        validateSequence(FragmentSeq[direction], direction, bytes, isSubPacket, True)
         FragmentedPacketSize[direction] = uncompressed[2] * 0x1000000 + uncompressed[3] * 0x10000 + uncompressed[4] * 0x100 + uncompressed[5]
 
         if (FragmentedPacketSize[direction] == 0 or FragmentedPacketSize[direction] > 1000000):
@@ -208,28 +186,15 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket, 
           Fragments[direction][0:len(temp)] = temp
       else:
         last = FragmentSeq[direction]
-        FragmentSeq[direction] = uncompressed[0] * 256 + uncompressed[1]
-        seq = getSequence(direction)
-
-        if (FragmentSeq[direction] != seq):
-          if (FragmentSeq[direction] > seq):
-            if (FragmentSeq[direction] - seq < 1000):
-              addToCache(FragmentSeq[direction], direction, bytes, isSubPacket)
-            else:
-              advanceSequence(direction);
-              FragmentSeq[direction] = -1
-              raise TypeError('Fragment: Missing expected fragment 2')
-          raise StopIteration()
-        else:
-          advanceSequence(direction)
+        FragmentSeq[direction] = getBUInt16(uncompressed, 0)
+        validateSequence(FragmentSeq[direction], direction, bytes, isSubPacket, False)
 
         if (len(uncompressed) - 2 > len(Fragments[direction]) - FragmentedBytesCollected[direction]):
           FragmentSeq[direction] = -1
           raise TypeError('Fragment: Mangled fragment 2')
 
         index = FragmentedBytesCollected[direction]
-        lastIndex = index + len(uncompressed) - 2;
-     
+        lastIndex = index + len(uncompressed) - 2;   
         Fragments[direction][index:lastIndex] = uncompressed[2:]
         FragmentedBytesCollected[direction] += len(uncompressed) - 2
 
@@ -237,50 +202,27 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket, 
           if (Fragments[direction][0] == 0x00 and Fragments[1][direction] == 0x019):
             pos = 2
             while (pos < len(Fragments[direction])):
-              size = 0
               if (Fragments[direction][pos] == 0xff):
-                if (Fragments[direction][pos + 1] == 0x01):
-                  size = 256 + Fragments[direction][pos + 2]
-                else:
-                  size = Fragments[direction][pos + 2]            
+                size = getBUInt16(Fragments[direction], pos + 1) - 2     
                 pos += 3
               else:
-                size = Fragments[direction][pos]
+                size = Fragments[direction][pos] - 2
                 pos += 1
 
-              opcodeBytes = 2
-              appOpcode = Fragments[direction][pos]
-              pos += 1
-
-              if (appOpcode == 0):
-                pos += 1
-                opcodeBytes = 3
-
-              appOpcode += Fragments[direction][pos] * 256
-              pos += 1
-              processAppPacket(callback, srcIP, dstIP, srcPort, dstPort, appOpcode, size - opcodeBytes, Fragments[direction], pos, direction)
-              pos += size - opcodeBytes
+              appOpcode = getUInt16(Fragments[direction], pos)
+              pos += 2
+              processAppPacket(callback, srcIP, dstIP, srcPort, dstPort, appOpcode, size, Fragments[direction], pos, direction)
+              pos += size
           else:
-            pos = 0
-            opcodeBytes = 2
-            appOpcode = Fragments[direction][pos]
-            pos += 1
-
-            if (appOpcode == 0):
-              pos += 1
-              opcodeBytes = 3
-
-            appOpcode += Fragments[direction][pos] * 256
-            pos += 1
-            lastIndex = len(Fragments[direction]) - opcodeBytes + pos
-            newPacket = Fragments[direction][pos:lastIndex]
+            appOpcode = getUInt16(Fragments[direction], 0)
+            newPacket = Fragments[direction][2:len(Fragments[direction]) - 2]
             processAppPacket(callback, srcIP, dstIP, srcPort, dstPort, appOpcode, len(newPacket), newPacket, 0, direction)
           FragmentSeq[direction] = -1
 
     # Unencapsulated EQ Application Opcode
     elif (opcode > 0xff):
       if (isSubPacket):
-        appOpcode = bytes[1] * 256 + bytes[0]
+        appOpcode = getBUInt16(bytes, 0)
         newPacket = bytes[2:]
       else:
         if (bytes[1] == 0x5a):
