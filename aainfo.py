@@ -8,7 +8,8 @@ import re
 import sys
 from lib import eqreader
 
-AATableOpcode = 0x41a4
+AATableOpcode = 0x41a4 # Test Server 9/11/18, 0x4cfb - Live 9/18/18
+
 OutputFile = 'aainfo.txt'
 DBStringsFile = 'data/dbstr_us.txt'
 DBSpellsFile = 'data/spells_us.txt'
@@ -25,8 +26,14 @@ Types = ['Unknown', 'General', 'Archetype', 'Class', 'Special', 'Focus']
 # Slot 1/SPA info used to search for the AATableOpcode if it is unknown
 # Everyone has these and rank 1 seems to show up after a /resetAA
 WellKnownAAList = [
-  [1, 0, 0, 0, 221, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],  # Packrat
-  [1, 0, 0, 0, 246, 0, 0, 0, 110, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0] # Innate Lung Capacity
+  [1, 0, 0, 0, 107, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0], # Battle Ready 1
+  [1, 0, 0, 0, 107, 1, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0], # Battle Ready 2
+  [1, 0, 0, 0, 107, 1, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0], # Battle Ready 3
+  [1, 0, 0, 0, 107, 1, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0], # Battle Ready 4
+  [16, 0, 0, 0, 83, 1, 0, 0, 40, 0, 0, 0, 36, 147, 0, 0, 1, 0, 0, 0], # Basestrike 1
+  [1, 0, 0, 0, 221, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0], # Packrat 1
+  [1, 0, 0, 0, 221, 0, 0, 0, 33, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0], # Packrat 11
+  [1, 0, 0, 0, 246, 0, 0, 0, 110, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0] # Innate Lung Capacity 1
 ]
 
 AAData = dict()
@@ -84,7 +91,7 @@ def findOpcode(opcode, buffer):
     for aa in WellKnownAAList:
       start = 0
       end = len(aa)
-      while (not found and end < size):
+      while (not found and end <= size):
         if (buffer[start:end] == aa):
           AATableOpcode = opcode
           found = True
@@ -114,7 +121,7 @@ def readUInt32(buffer):
 
 def handleEQPacket(opcode, size, bytes, pos):
   global AAData
-
+ 
   # handle search for opcode
   if (AATableOpcode == 0):
     findOpcode(opcode, list(bytes[pos:]))
