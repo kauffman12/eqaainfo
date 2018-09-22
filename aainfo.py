@@ -23,14 +23,14 @@ Expansions = ['Classic', 'Ruins of Kunark', 'The Scars of Velious', 'The Shadows
 'Rain of Fear', 'Call of the Forsaken', 'The Darkened Sea', 'The Broken Mirror', 'Empires of Kunark', 'Ring of Scale']
 Types = ['Unknown', 'General', 'Archetype', 'Class', 'Special', 'Focus']
 
-# Slot 1/SPA info used to search for the AATableOpcode if it is unknown
+# Slot count + Slot 1/SPA info used to search for the AATableOpcode if it is unknown
 # Everyone has these and rank 1 seems to show up after a /resetAA
 WellKnownAAList = [
   [1, 0, 0, 0, 107, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0], # Battle Ready 1
   [1, 0, 0, 0, 107, 1, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0], # Battle Ready 2
   [1, 0, 0, 0, 107, 1, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0], # Battle Ready 3
   [1, 0, 0, 0, 107, 1, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0], # Battle Ready 4
-  [16, 0, 0, 0, 83, 1, 0, 0, 40, 0, 0, 0, 36, 147, 0, 0, 1, 0, 0, 0], # Basestrike 1
+  [16, 0, 0, 0, 83, 1, 0, 0, 40, 0, 0, 0, 36, 147, 0, 0, 1, 0, 0, 0], # Banestrike 1
   [1, 0, 0, 0, 221, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0], # Packrat 1
   [1, 0, 0, 0, 221, 0, 0, 0, 33, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0], # Packrat 11
   [1, 0, 0, 0, 246, 0, 0, 0, 110, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0] # Innate Lung Capacity 1
