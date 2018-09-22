@@ -202,21 +202,6 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket, 
         if (FragmentedBytesCollected[direction] == FragmentedPacketSize[direction]):
           findAppPacket(callback, Fragments[direction], direction)
           FragmentSeq[direction] = -1
-
-    # Unencapsulated EQ Application Opcode
-    elif (opcode > 0xff):
-      if (isSubPacket):
-        appOpcode = getBUInt16(bytes, 0)
-        newPacket = bytes[2:]
-      else:
-        if (bytes[1] == 0x5a):
-          uncompressed = zlib.decompress(bytes[2:])
-          appOpcode = getBUInt16([uncompressed[0], bytes[0]])
-          newPacket = uncompressed[1:]
-        else:
-          appOpcode = getBUInt16([bytes[2], bytes[0]])
-          newPacket = bytes[3:]
-      callback(appOpcode, len(newPacket), newPacket, 0, ServerToClient == direction)
   except TypeError as error:
     pass #print(error)
   except StopIteration as stoppping:
