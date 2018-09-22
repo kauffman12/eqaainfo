@@ -92,11 +92,6 @@ def findOpcode(opcode, buffer):
           start += 1
           end += 1
 
-def readByte(buffer):
-  value = buffer[0]
-  del buffer[0]
-  return value
-
 def readBytes(buffer, count):
   value = buffer[0:count]
   del buffer[0:count]
@@ -129,7 +124,7 @@ def handleEQPacket(opcode, size, bytes, pos):
     try:
       buffer = list(bytes[pos:pos+size])
       descID = readInt32(buffer)
-      readByte(buffer) # always 1
+      readBytes(buffer, 1) # always 1
       hotKeySID = readInt32(buffer)
       hotKeySID2 = readInt32(buffer)
       titleSID = readInt32(buffer)
@@ -176,7 +171,7 @@ def handleEQPacket(opcode, size, bytes, pos):
       readBytes(buffer, 4) #unknown
       expansion2 = readUInt32(buffer) # required expansion? it's not always set
       maxActivationLevel = readUInt32(buffer) # max player level that can use the AA
-      isGlyph = readByte(buffer)
+      isGlyph = readBytes(buffer, 1)
       spaCount = readUInt32(buffer)
 
       # lookup Title from DB
@@ -284,14 +279,14 @@ def main(args):
 
     try:
       print('Reading %s' % args[1])
-      errors = eqreader.readPcap(handleEQPacket, args[1])
+      eqreader.readPcap(handleEQPacket, args[1])
       if (len(AAData) > 0):
         saveAAData()
         print('Saved data for %d AAs to %s' % (len(AAData), OutputFile))
       else:
         print('No AAs found using opcode: %s, searching for updated opcode' % hex(AATableOpcode))
         AATableOpcode = 0
-        errors = eqreader.readPcap(handleEQPacket, args[1])
+        eqreader.readPcap(handleEQPacket, args[1])
 
         if (AATableOpcode > 0):
           print('Found likely opcode: %s, trying to parse AA data again' % hex(AATableOpcode))
