@@ -38,16 +38,14 @@ def getSequence(direction):
     seq = ClientSEQ
   return seq
 
-def uncompress(bytes, opcode, isSubPacket):
+def uncompress(bytes, opcode, isSubPacket, offset):
+  lastIndex = len(bytes) - offset
   if (not isSubPacket and bytes[2] == 0x5a):
-    uncompressed = zlib.decompress(bytes[3:])
+    uncompressed = zlib.decompress(bytes[3:lastIndex])
   elif (not isSubPacket and bytes[2] == 0xa5):
-    lastIndex = len(bytes)
-    # remove two bytes at the end for some reason
-    if (opcode == 0x09 or opcode == 0x0d):
-      lastIndex -= 2
     uncompressed = bytes[3:lastIndex]
   else:
+    # offset not used when subpacket
     uncompressed = bytes[2:]
   return uncompressed
 
@@ -107,19 +105,18 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket, 
     # Combined 
     elif (opcode == 0x03):
       pos = 0
-      uncompressed = uncompress(bytes, opcode, isSubPacket)
+      uncompressed = uncompress(bytes, opcode, isSubPacket, 0)
 
       while (pos < len(uncompressed) - 2):
         isSubPacketSize = uncompressed[pos]
         pos += 1
-        lastIndex = isSubPacketSize + pos
-        newPacket = uncompressed[pos:lastIndex]
+        newPacket = uncompressed[pos:isSubPacketSize + pos]
         pos += isSubPacketSize
         processPacket(callback, srcIP, dstIP, srcPort, dstPort, newPacket, True, isCached)
 
     # Packet
     elif (opcode == 0x09):
-      uncompressed = uncompress(bytes, opcode, isSubPacket)
+      uncompressed = uncompress(bytes, opcode, isSubPacket, 2)
       seq = uncompressed[0] * 256 + uncompressed[1]
       expected = getSequence(direction)
 
@@ -137,7 +134,7 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket, 
 
       if (uncompressed[2] == 0x00 and uncompressed[3] == 0x19):
         pos = 4
-        while (pos < len(uncompressed) - 3):
+        while (pos < len(uncompressed) - 2):
           size = 0
           opcodeBytes = 2
 
@@ -149,32 +146,34 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket, 
             pos += 3
           else:
             size = uncompressed[pos]
-            appOpcode = uncompressed[pos + 1]
-            pos += 2
-
-            if (appOpcode == 0):
-              pos += 1
-              opcodeBytes = 3
-
-            appOpcode = appOpcode + uncompressed[pos] * 256
             pos += 1
-            processAppPacket(callback, srcIP, dstIP, srcPort, dstPort, appOpcode, size - opcodeBytes, uncompressed, pos, direction)
-            pos += size - opcodeBytes
+
+          appOpcode = uncompressed[pos]
+          pos += 1
+
+          if (appOpcode == 0):
+            pos += 1
+            opcodeBytes = 3
+
+          appOpcode = appOpcode + uncompressed[pos] * 256
+          pos += 1
+          processAppPacket(callback, srcIP, dstIP, srcPort, dstPort, appOpcode, size - opcodeBytes, uncompressed, pos, direction)
+          pos += size - opcodeBytes
       else:
         pos = opcodeBytes = 2
         appOpcode = uncompressed[pos]
-        pos = pos + 1
+        pos += 1
 
         if (appOpcode == 0):
           pos += 1
           opcodeBytes = 3
 
-        appOpcode = appOpcode + uncompressed[pos] * 256
+        appOpcode += uncompressed[pos] * 256
         processAppPacket(callback, srcIP, dstIP, srcPort, dstPort, appOpcode, len(uncompressed) - 2 + opcodeBytes, uncompressed, pos + 1, direction)       
 
     # Fragment
     elif (opcode == 0x0d):
-      uncompressed = uncompress(bytes, opcode, isSubPacket)
+      uncompressed = uncompress(bytes, opcode, isSubPacket, 2)
 
       if (FragmentSeq[direction] == -1):
         seq = getSequence(direction)
@@ -203,10 +202,10 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket, 
           if (len(uncompressed) - 6 > FragmentedPacketSize[direction]):
             FragmentSeq[direction] = -1
             raise TypeError('Fragment: mangled fragment 1')
-          else:
-            Fragments[direction] = bytearray(FragmentedPacketSize[direction])
-            temp = uncompressed[6:]
-            Fragments[direction][0:len(temp)] = temp
+
+          Fragments[direction] = bytearray(FragmentedPacketSize[direction])
+          temp = uncompressed[6:]
+          Fragments[direction][0:len(temp)] = temp
       else:
         last = FragmentSeq[direction]
         FragmentSeq[direction] = uncompressed[0] * 256 + uncompressed[1]
@@ -227,41 +226,28 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket, 
         if (len(uncompressed) - 2 > len(Fragments[direction]) - FragmentedBytesCollected[direction]):
           FragmentSeq[direction] = -1
           raise TypeError('Fragment: Mangled fragment 2')
-        else:
-          index = FragmentedBytesCollected[direction]
-          lastIndex = FragmentedBytesCollected[direction] + len(uncompressed) - 2;
-          Fragments[direction][index:lastIndex] = uncompressed[2:]
-          FragmentedBytesCollected[direction] += len(uncompressed) - 2
 
-          if (FragmentedBytesCollected[direction] == FragmentedPacketSize[direction]):
-            if (Fragments[direction][0] == 0x00 and Fragments[1][direction] == 0x019):
-              pos = 2
-              while (pos < len(Fragments[direction])):
-                size = 0
-                if (Fragments[direction][pos] == 0xff):
-                  if (Fragments[direction][pos + 1] == 0x01):
-                    size = 256 + Fragments[direction][pos + 2]
-                  else:
-                    size = Fragments[direction][pos + 2]            
-                  pos += 3
+        index = FragmentedBytesCollected[direction]
+        lastIndex = index + len(uncompressed) - 2;
+     
+        Fragments[direction][index:lastIndex] = uncompressed[2:]
+        FragmentedBytesCollected[direction] += len(uncompressed) - 2
+
+        if (FragmentedBytesCollected[direction] == FragmentedPacketSize[direction]):
+          if (Fragments[direction][0] == 0x00 and Fragments[1][direction] == 0x019):
+            pos = 2
+            while (pos < len(Fragments[direction])):
+              size = 0
+              if (Fragments[direction][pos] == 0xff):
+                if (Fragments[direction][pos + 1] == 0x01):
+                  size = 256 + Fragments[direction][pos + 2]
                 else:
-                  size = Fragments[direction][pos]
-                  pos += 1
-
-                opcodeBytes = 2
-                appOpcode = Fragments[direction][pos]
+                  size = Fragments[direction][pos + 2]            
+                pos += 3
+              else:
+                size = Fragments[direction][pos]
                 pos += 1
 
-                if (appOpcode == 0):
-                  pos += 1
-                  opcodeBytes = 3
-
-                appOpcode += Fragments[direction][pos] * 256
-                pos += 1
-                processAppPacket(callback, srcIP, dstIP, srcPort, dstPort, appOpcode, size - opcodeBytes, Fragments[direction], pos, direction)
-                pos = pos + size - opcodeBytes
-            else:
-              pos = 0
               opcodeBytes = 2
               appOpcode = Fragments[direction][pos]
               pos += 1
@@ -272,10 +258,24 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket, 
 
               appOpcode += Fragments[direction][pos] * 256
               pos += 1
-              lastIndex = len(Fragments[direction]) - opcodeBytes + pos
-              newPacket = Fragments[direction][pos:lastIndex]
-              processAppPacket(callback, srcIP, dstIP, srcPort, dstPort, appOpcode, len(newPacket), newPacket, 0, direction)
-            FragmentSeq[direction] = -1
+              processAppPacket(callback, srcIP, dstIP, srcPort, dstPort, appOpcode, size - opcodeBytes, Fragments[direction], pos, direction)
+              pos += size - opcodeBytes
+          else:
+            pos = 0
+            opcodeBytes = 2
+            appOpcode = Fragments[direction][pos]
+            pos += 1
+
+            if (appOpcode == 0):
+              pos += 1
+              opcodeBytes = 3
+
+            appOpcode += Fragments[direction][pos] * 256
+            pos += 1
+            lastIndex = len(Fragments[direction]) - opcodeBytes + pos
+            newPacket = Fragments[direction][pos:lastIndex]
+            processAppPacket(callback, srcIP, dstIP, srcPort, dstPort, appOpcode, len(newPacket), newPacket, 0, direction)
+          FragmentSeq[direction] = -1
 
     # Unencapsulated EQ Application Opcode
     elif (opcode > 0xff):

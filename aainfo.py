@@ -188,11 +188,9 @@ def handleEQPacket(opcode, size, bytes, pos):
         title = str(titleSID)
         if (len(DBTitleStrings) > 0):
           print('AA Title not found in DB, possible problem parsing data (format change?)')
-      if (rank > 0):
-        title = '%s (%d)' % (title, rank)
 
       output = io.StringIO()
-      output.write('Ability:         %s\n' % title)
+      output.write('Ability:         %s (%d)\n' % (title, rank))
       output.write('Activation ID:   %d\n' % aaID)
 
       if (type > -1):
@@ -264,7 +262,7 @@ def handleEQPacket(opcode, size, bytes, pos):
       output.write('Description:    %s\n' % desc)
 
       output.write('\n')
-      AAData[title] = output.getvalue()
+      AAData['%s-%02d' % (title, rank)] = output.getvalue()
       output.close()
     except TypeError as error:
       pass #print(error)
