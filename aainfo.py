@@ -6,7 +6,8 @@
 import io
 import re
 import sys
-from lib import eqreader
+from lib.util import *
+from lib.eqreader import *
 
 AATableOpcode = 0x41a4 # Test Server 9/11/18, 0x4cfb - Live 9/18/18
 
@@ -99,26 +100,6 @@ def findOpcode(opcode, buffer):
           start += 1
           end += 1
 
-def readBytes(buffer, count):
-  value = buffer[0:count]
-  del buffer[0:count]
-  return value
-
-def readInt32(buffer):
-  value = buffer[0:4]
-  del buffer[0:4]
-  return int.from_bytes(value, 'little', signed=True)
-
-def readUInt16(buffer):
-  value = buffer[0:2]
-  del buffer[0:2]
-  return int.from_bytes(value, 'little', signed=False)
-
-def readUInt32(buffer):
-  value = buffer[0:4]
-  del buffer[0:4]
-  return int.from_bytes(value, 'little', signed=False)
-
 def handleEQPacket(opcode, size, bytes, pos):
   global AAData
  
@@ -178,7 +159,7 @@ def handleEQPacket(opcode, size, bytes, pos):
       readBytes(buffer, 4) #unknown
       expansion2 = readUInt32(buffer) # required expansion? it's not always set
       maxActivationLevel = readUInt32(buffer) # max player level that can use the AA
-      isGlyph = readBytes(buffer, 1)
+      isGlyph = readBytes(buffer, 1)[0] == 1
       spaCount = readUInt32(buffer)
 
       # lookup Title from DB
@@ -287,17 +268,17 @@ def main(args):
 
     try:
       print('Reading %s' % args[1])
-      eqreader.readPcap(handleEQPacket, args[1])
+      readPcap(handleEQPacket, args[1])
       if (len(AAData) > 0):
         saveAAData()
       else:
         print('No AAs found using opcode: %s, searching for updated opcode' % hex(AATableOpcode))
         AATableOpcode = 0
-        eqreader.readPcap(handleEQPacket, args[1])
+        readPcap(handleEQPacket, args[1])
         if (AATableOpcode > 0):
           print('Found likely opcode: %s, trying to parse AA data again' % hex(AATableOpcode))
           AAData = dict()
-          eqreader.readPcap(handleEQPacket, args[1])
+          readPcap(handleEQPacket, args[1])
           if (len(AAData) > 0):
             saveAAData()
             print('Update the default opcode to speed up this process in the future')
