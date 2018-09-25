@@ -47,9 +47,9 @@ def findAppPacket(callback, uncompressed):
 
       newPacket = readBytes(uncompressed, size)
       appOpcode = readUInt16(newPacket)
-      callback(appOpcode, len(newPacket), newPacket, 0)    
+      callback(appOpcode, newPacket)    
   else:
-    callback(code, len(uncompressed), uncompressed, 0)
+    callback(code, uncompressed)
 
 def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket):
   global CryptoFlag, FragmentSeq, Fragments, FragmentedPacketSize, LastSeq

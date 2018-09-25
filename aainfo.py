@@ -82,85 +82,84 @@ def loadDBSpells():
   except Exception as error:
     print(error)
 
-def findOpcode(opcode, buffer):
+def findOpcode(opcode, bytes):
   global AATableOpcode
 
   # eliminate packets obviously too small for an AA
-  size = len(buffer)
+  size = len(bytes)
   if (size >= 100):
     found = False
     for aa in WellKnownAAList:
       start = 0
       end = len(aa)
       while (not found and end <= size):
-        if (buffer[start:end] == aa):
+        if (bytes[start:end] == aa):
           AATableOpcode = opcode
           found = True
         else:
           start += 1
           end += 1
 
-def handleEQPacket(opcode, size, bytes, pos):
+def handleEQPacket(opcode, bytes):
   global AAData
  
   # handle search for opcode
   if (AATableOpcode == 0):
-    findOpcode(opcode, list(bytes[pos:]))
+    findOpcode(opcode, bytes)
 
   # save an AA if the opcode is correct
   elif (AATableOpcode != 0 and opcode == AATableOpcode):
     try:
-      buffer = list(bytes[pos:pos+size])
-      descID = readInt32(buffer)
-      readBytes(buffer, 1) # always 1
-      hotKeySID = readInt32(buffer)
-      hotKeySID2 = readInt32(buffer)
-      titleSID = readInt32(buffer)
-      descSID2 = readInt32(buffer)
-      reqLevel = readUInt32(buffer)
-      cost = readUInt32(buffer)
-      aaID = readUInt32(buffer)
-      rank = readUInt32(buffer)
+      descID = readInt32(bytes)
+      readBytes(bytes, 1) # always 1
+      hotKeySID = readInt32(bytes)
+      hotKeySID2 = readInt32(bytes)
+      titleSID = readInt32(bytes)
+      descSID2 = readInt32(bytes)
+      reqLevel = readUInt32(bytes)
+      cost = readUInt32(bytes)
+      aaID = readUInt32(bytes)
+      rank = readUInt32(bytes)
 
       reqSkills = []
-      reqSkillCount = readUInt32(buffer)
+      reqSkillCount = readUInt32(bytes)
       if (reqSkillCount < 5): # or some reasonable value so theres no crazy long loops
         for s in range(reqSkillCount):
-          value = readUInt32(buffer)
+          value = readUInt32(bytes)
           if (value > 0):
             reqSkills.insert(0, value)
       else:
         raise TypeError('handleEQPacket: Bad AA format')
 
       reqRanks = []
-      reqRankCount = readUInt32(buffer)
+      reqRankCount = readUInt32(bytes)
       if (reqRankCount < 5): # or some reasonable value so theres no crazy long loops
         for p in range(reqRankCount):
-          value = readUInt32(buffer)
+          value = readUInt32(bytes)
           if (value > 0):
             reqRanks.insert(0, value)
       else:
         raise TypeError('handleEQPacket: Bad AA format')
 
-      type = readUInt32(buffer)
-      spellID = readInt32(buffer)
-      readUInt32(buffer) # always 1
-      abilityTimer = readUInt32(buffer)
-      refreshTime = readUInt32(buffer)
-      classMask = readUInt16(buffer)
-      berserkerMask = readUInt16(buffer)
-      maxRank = readUInt32(buffer)
-      prevDescSID = readInt32(buffer)
-      nextDescSID = readInt32(buffer)
-      totalCost = readUInt32(buffer)
-      readBytes(buffer, 10) # unknown
-      expansion = readUInt32(buffer)
-      category = readInt32(buffer)
-      readBytes(buffer, 4) #unknown
-      expansion2 = readUInt32(buffer) # required expansion? it's not always set
-      maxActivationLevel = readUInt32(buffer) # max player level that can use the AA
-      isGlyph = readBytes(buffer, 1)[0] == 1
-      spaCount = readUInt32(buffer)
+      type = readUInt32(bytes)
+      spellID = readInt32(bytes)
+      readUInt32(bytes) # always 1
+      abilityTimer = readUInt32(bytes)
+      refreshTime = readUInt32(bytes)
+      classMask = readUInt16(bytes)
+      berserkerMask = readUInt16(bytes)
+      maxRank = readUInt32(bytes)
+      prevDescSID = readInt32(bytes)
+      nextDescSID = readInt32(bytes)
+      totalCost = readUInt32(bytes)
+      readBytes(bytes, 10) # unknown
+      expansion = readUInt32(bytes)
+      category = readInt32(bytes)
+      readBytes(bytes, 4) #unknown
+      expansion2 = readUInt32(bytes) # required expansion? it's not always set
+      maxActivationLevel = readUInt32(bytes) # max player level that can use the AA
+      isGlyph = readBytes(bytes, 1)[0] == 1
+      spaCount = readUInt32(bytes)
 
       # lookup Title from DB
       if (titleSID == -1):
@@ -231,10 +230,10 @@ def handleEQPacket(opcode, size, bytes, pos):
         output.write('Found %d SPA Slots:\n' % spaCount)
 
       for t in range(spaCount):
-        spa = readUInt32(buffer)
-        base1 = readInt32(buffer)
-        base2 = readInt32(buffer)
-        slot = readUInt32(buffer)
+        spa = readUInt32(bytes)
+        base1 = readInt32(bytes)
+        base2 = readInt32(bytes)
+        slot = readUInt32(bytes)
         output.write('   Slot:   %3d   SPA:   %3d   Base1:   %6d   Base2:   %6d\n' % (slot, spa, base1, base2))
 
       desc = DBDescStrings.get(descSID2)
