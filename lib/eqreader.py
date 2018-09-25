@@ -81,13 +81,10 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket):
     elif (opcode == 0x03):
       uncompressed = uncompress(bytes, isSubPacket, False)
 
-      pos = 0
-      while (pos < len(uncompressed) - 2):
-        size = uncompressed[pos]
-        pos += 1
-        newPacket = uncompressed[pos:size+pos]
+      while (len(uncompressed) > 2):
+        size = readBytes(uncompressed, 1)[0]
+        newPacket = readBytes(uncompressed, size)
         processPacket(callback, srcIP, dstIP, srcPort, dstPort, newPacket, True)
-        pos += size
 
     # Packet
     elif (opcode == 0x09):
