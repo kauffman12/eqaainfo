@@ -15,16 +15,15 @@ FragmentedPacketSize = 0
 LastSeq = -1
 
 def uncompress(bytes, isSubPacket, removeEnd):
-  if (not isSubPacket and bytes[2] == 0x5a):
-    uncompressed = zlib.decompress(bytes[3:])
-  elif (not isSubPacket and bytes[2] == 0xa5):
+  if (not isSubPacket and bytes[0] == 0x5a):
+    uncompressed = bytearray(zlib.decompress(bytes[1:]))
+  elif (not isSubPacket and bytes[0] == 0xa5):
+    uncompressed = bytes[1:]
     if (removeEnd):
-      uncompressed = bytes[3:len(bytes)-2]
-    else:
-      uncompressed = bytes[3:]
+      uncompressed = bytes[:-2]
   else:
-    uncompressed = bytes[2:]
-  return list(uncompressed)
+    uncompressed = bytes[0:]
+  return uncompressed
 
 def getDirection(srcIP, dstIP, srcPort, dstPort):
   direction = UnknownDirection
@@ -44,7 +43,6 @@ def findAppPacket(callback, uncompressed):
         size = readBUInt16(uncompressed)
       else:
         size = readBytes(uncompressed, 1)[0]
-
       newPacket = readBytes(uncompressed, size)
       appOpcode = readUInt16(newPacket)
       callback(appOpcode, newPacket)    
@@ -53,7 +51,7 @@ def findAppPacket(callback, uncompressed):
 
 def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket):
   global CryptoFlag, FragmentSeq, Fragments, FragmentedPacketSize, LastSeq
-  opcode = int.from_bytes(bytes[0:2], 'big', signed=False)
+  opcode = readBUInt16(bytes)
 
   direction = getDirection(srcIP, dstIP, srcPort, dstPort)
   if ((direction == UnknownDirection and opcode != 0x01) or (direction == ClientToServer and opcode != 0x02)):
@@ -75,12 +73,11 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket):
 
     # Session Response
     elif (opcode == 0x02):
-      CryptoFlag = int.from_bytes(bytes[11:13], 'little', signed=False)
+      CryptoFlag = int.from_bytes(bytes[19:11], 'little', signed=False)
 
     # Combined 
     elif (opcode == 0x03):
       uncompressed = uncompress(bytes, isSubPacket, False)
-
       while (len(uncompressed) > 2):
         size = readBytes(uncompressed, 1)[0]
         newPacket = readBytes(uncompressed, size)
@@ -95,20 +92,16 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket):
     elif (opcode == 0x0d):
       uncompressed = uncompress(bytes, isSubPacket, True)
       seq = readBUInt16(uncompressed)
-
-      #print('SEQ: %d' % seq)
       if (FragmentSeq == -1):
         FragmentedPacketSize = readBUInt32(uncompressed)
-
         size = len(uncompressed)
-        if (FragmentedPacketSize == 0 or FragmentedPacketSize > 1000000):
-          raise StopIteration('Got a fragmented packet of size ' + str(FragmentedPacketSize) + ', discarding')
+        if (FragmentedPacketSize == 0 or FragmentedPacketSize > 2000000):
+          raise StopIteration('Debug: received fragmented of size %d, discarding' % FragmentedPacketSize)
         else:
           if (size > FragmentedPacketSize):
-            raise TypeError('Fragment: mangled fragment %d to %d' % (size, FragmentedPacketSize))
-
+            raise TypeError('Error: mangled fragment %d to %d' % (size, FragmentedPacketSize))
           FragmentSeq = seq
-          Fragments += uncompressed
+          Fragments = uncompressed
           # +4 to account for packet size read in current fragment
           # assuming a standrd length for fragments within a sequence
           LastSeq = int(FragmentedPacketSize / size + 4) + FragmentSeq
@@ -116,17 +109,15 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket):
         if (seq <= LastSeq):
           Fragments += uncompressed
           FragmentSeq += 1
-
         # no issues
         if ((len(Fragments) == FragmentedPacketSize and FragmentSeq <= LastSeq)):
           findAppPacket(callback, Fragments)
           FragmentSeq = -1
-          Fragments = []
-        elif (seq > LastSeq): #skipped too far ahead
+        elif (seq > LastSeq): # sequence skipped too far ahead
+          #print('Warning: data missing from sequence ending %d' % LastSeq)
           FragmentSeq = -1
-          Fragments = []
-          print('Fragment: incomplete sequence, possible data loss')
-          processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket)      
+          replayPacket = bytearray(opcode.to_bytes(2, 'big')) + bytes
+          processPacket(callback, srcIP, dstIP, srcPort, dstPort, replayPacket, isSubPacket)      
   except TypeError as error:
     print(error)
   except StopIteration as stopInfo:
@@ -138,6 +129,6 @@ def readPcap(callback, pcap):
   for packet in rdpcap(pcap):
     try:
       if (UDP in packet and Raw in packet and len(packet[UDP].payload) > 2):
-        processPacket(callback, packet[IP].src, packet[IP].dst, packet[UDP].sport, packet[UDP].dport, packet[UDP].payload.load, False)
+        processPacket(callback, packet[IP].src, packet[IP].dst, packet[UDP].sport, packet[UDP].dport, bytearray(packet[UDP].payload.load), False)
     except Exception as error:
       print(error)
