@@ -1,9 +1,13 @@
+import struct
+
 # useful when searching for new fields or when existing ones have been moved
 def findIndexOf(bytes, data, size=4):
   index = -1
   start = 0
   if isinstance(data, str):
     barr = bytearray(data.encode())
+  elif isinstance(data, float):
+    barr = bytearray(struct.pack('f', data))
   else:
     barr = bytearray(data.to_bytes(size, byteorder='little'))
   end = len(barr)
@@ -14,6 +18,14 @@ def findIndexOf(bytes, data, size=4):
     start += 1
     end += 1
   return index
+
+def getByteString(bytes, count):
+  result = ''
+  c = 0
+  while c < len(bytes) and c < count:
+    result += '%d ' % bytes[c]
+    c += 1
+  return result
 
 def readBUInt16(buffer):
   value = buffer[0:2]
@@ -55,10 +67,10 @@ def readUInt32(buffer):
   del buffer[0:4]
   return int.from_bytes(value, 'little', signed=False)
 
-def readString(buffer):
+def readString(buffer, maxLength=0):
   result = None
   count = 0
-  while (buffer[count] != 0 and buffer[count] >= 32 and buffer[count] <= 127):
+  while (buffer[count] != 0 and buffer[count] >= 32 and buffer[count] <= 127 and (not maxLength or count < maxLength)):
     count += 1
   if count > 0:
     try:

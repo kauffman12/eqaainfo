@@ -153,7 +153,7 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, isSubPacket):
           Fragments = uncompressed
           # +4 to account for packet size read in current fragment
           # assuming a standrd length for fragments within a sequence
-          LastSeq = int(FragmentedPacketSize / size + 4) + FragmentSeq
+          LastSeq = int(FragmentedPacketSize / (size + 4)) + FragmentSeq
       else:
         if (seq <= LastSeq):
           Fragments += uncompressed

@@ -5,6 +5,7 @@
 import io
 import pprint
 import re
+import struct
 import sys
 from lib.util import *
 from lib.eqreader import *
@@ -19,48 +20,63 @@ def readItemEffect(bytes):
   result = dict()
   result['SpellID'] = readInt32(bytes)
   readBytes(bytes, 1) # unknown
-  result['EffectType'] = readBytes(bytes, 1)[0]
-  readInt32(bytes) # unknown
-  readInt32(bytes) # unknown
+  result['Type'] = readBytes(bytes, 1)[0]
+  result['Level'] = readInt32(bytes) # unknown
+  result['Charges'] = readInt32(bytes) # unknown
   result['CastTime'] = readUInt32(bytes) # cast time not used for procs
-  result['RecastTime'] = readUInt32(bytes) # recast time not used for procs
-  readInt32(bytes) # unknown
-  result['ProcMod'] = meleeProcMod = readUInt32(bytes)
-  result['EffectName'] = readString(bytes)
+  result['RecastDelay'] = readUInt32(bytes) # recast time not used for procs
+  result['RecastType'] = readInt32(bytes) # unknown
+  result['ProcMod'] = readUInt32(bytes)
+  result['Name'] = readString(bytes)
   readInt32(bytes) # unknown -1 on guardian
   return result
 
 def readItem(bytes):
   item = dict()
-  item['unkStr'] = readString(bytes) # 16 character string
-  del bytes[0:64]
- 
-  item['unkStr2'] = readString(bytes) # ornaments have this other name string
-  if item['unkStr2']:
-    item['id2'] = readUInt32(bytes)
-    readBytes(bytes, 1) # need to read 1 extra and its not using a good null terminator
-  else:
-    item['id2'] = readUInt32(bytes)
+  item['dbStr'] = readString(bytes, 16) # 16 character string
+  item['quantity'] = readUInt8(bytes)
 
+  # lots of unknown
+  readBytes(bytes, 59)
+
+  # sometimes a 2nd name is set. Round Cut Tool might say Oval Cut Tool in this value
+  # some mount items have a slightly different name here, ornaments say a different name
+  dbStr2Len = readUInt32(bytes) # length to read
+  if dbStr2Len > 0:
+    item['dbStr2'] = readString(bytes, dbStr2Len)
+
+  item['id2'] = readUInt32(bytes)
   readUInt32(bytes) # unknown
 
-  # not really sure about this yet but skull of null has extra data
-  extra = readInt8(bytes)
-  if extra:
-    readBytes(bytes, 25)
+  # if evolving item? seems to lineup but values vary
+  item['evolving'] = readUInt8(bytes)
+  if item['evolving']:
+    readInt32(bytes)# some id maybe
+    item['evolvedLevel'] = readUInt8(bytes)
+    readBytes(bytes, 3)
+    readBytes(bytes, 8) # somehow describes percent into current level and/or difficulty
+    item['evolvedLevelMin'] = readUInt8(bytes)
+    item['evolvedLevelMax'] = readUInt8(bytes)
+    readBytes(bytes, 7)
 
   readBytes(bytes, 27)
+  item['itemClass'] = readUInt8(bytes) # 2 book, container, 0 normal
   item['name'] = readString(bytes)
-  item['lore'] = readString(bytes)
+  item['details'] = readString(bytes)
   item['fileID'] = readString(bytes)
-  readBytes(bytes, 1) # dont really know
+  readBytes(bytes, 1) # dont know
   item['itemID'] = readInt32(bytes)
   item['weight'] = readInt8(bytes) / 10
-  readBytes(bytes, 7) # dont really know
+  readBytes(bytes, 3) # dont know
+  item['temporary'] = readUInt8(bytes) ^ 1
+  item['tradeable'] = readUInt8(bytes)
+  item['attunable'] = readUInt8(bytes)
+  item['size'] = readUInt8(bytes)
   item['slots'] = readUInt32(bytes)
-  readBytes(bytes, 4) # dont really know
+  item['sellPrice'] = readUInt32(bytes)
   item['icon'] = readUInt32(bytes)
-  readBytes(bytes, 2) # dont really know
+  readBytes(bytes, 1) # dont know
+  item['usedInTradeskills'] = readUInt8(bytes)
   item['cr'] = readInt8(bytes)
   item['dr'] = readInt8(bytes)
   item['pr'] = readInt8(bytes)
@@ -74,20 +90,19 @@ def readItem(bytes):
   item['cha'] = readInt8(bytes)
   item['int'] = readInt8(bytes)
   item['wis'] = readInt8(bytes)
-
   item['hp'] = readInt32(bytes)
   item['mana'] = readInt32(bytes)
-  item['endur'] = readInt32(bytes)
+  item['endurance'] = readInt32(bytes)
   item['ac'] = readInt32(bytes)
   item['regen'] = readInt32(bytes)
-  item['mregen'] = readInt32(bytes)
-  item['eregen'] = readInt32(bytes)
+  item['manaRegen'] = readInt32(bytes)
+  item['enduranceRegen'] = readInt32(bytes)
   item['classMask'] = readUInt32(bytes)
   item['races'] = readUInt32(bytes)
   item['deity'] = readUInt32(bytes)
-  item['skillmodvalue'] = readInt32(bytes)
-  item['skillmodmax'] = readInt32(bytes)
-  item['skillmodtype'] = readInt32(bytes)  
+  item['skillModPercent'] = readInt32(bytes)
+  item['skillModMax'] = readInt32(bytes)
+  item['skillModType'] = readInt32(bytes)
   readBytes(bytes, 20) # skip bane damage stuff for now
   item['magic'] = readInt8(bytes)
   item['castTime'] = readInt32(bytes)
@@ -119,38 +134,34 @@ def readItem(bytes):
 
   # what aug slots are in the item
   # always up to 6 slots?
-  readBytes(bytes, 1) # unknown
-  item['augType1'] = readInt8(bytes)
-  readUInt32(bytes) # always 1?
-  readBytes(bytes, 1) # unknown
-  item['augType2'] = readInt8(bytes)
-  readUInt32(bytes) # always 1?
-  readBytes(bytes, 1) # unknown
-  item['augType3'] = readInt8(bytes)
-  readUInt32(bytes) # always 1?
-  readBytes(bytes, 1) # unknown
-  item['augType4'] = readInt8(bytes)
-  readUInt32(bytes) # always 1?
-  readBytes(bytes, 1) # unknown
-  item['augType5'] = readInt8(bytes)
-  readUInt32(bytes) # always 1?
-  readBytes(bytes, 1) # unknown
-  item['augType6'] = readInt8(bytes)
-  readUInt32(bytes) # always 1?
+  augSlots = 0
+  augList = []
+  while augSlots < 6:
+    readBytes(bytes, 1) # unknown
+    augList.append(readInt8(bytes))
+    readUInt32(bytes) # always 1?
+    augSlots += 1
+  item['augSlots'] = augList
 
-  readBytes(bytes, 28) # unknown
+  readBytes(bytes, 21) # unknown
+
+  # type of container or 0 if not one
+  item['containerType'] = readUInt8(bytes)
+  item['containerCapacity'] = readUInt8(bytes)
+  item['containerItemSize'] = readUInt8(bytes)
+  item['containerWeightReduction'] = readUInt8(bytes)
+  readBytes(bytes, 25) # unknown
   readInt32(bytes) # some -1?
   readBytes(bytes, 23) # unknown
   readInt32(bytes) # some -1?
   readBytes(bytes, 6) # unknown
 
   item['stackSize'] = readUInt32(bytes) # maybe stack size
-  readBytes(bytes, 22) # unknown
 
   effs = 0
   effectsList = []
   while effs < 9:
-    effectsList.insert(0, readItemEffect(bytes))
+    effectsList.append(readItemEffect(bytes))
     effs += 1 
   item['effects'] = effectsList
 
@@ -172,16 +183,37 @@ def readItem(bytes):
   item['placeable2'] = readUInt8(bytes)
   readBytes(bytes, 60)
   return item
+
+# I don't really see a good use for this data but this is what the structure looks like when you search for items
+# in the bazaar. Instead of knownig the opcode you could probably just execute this search on every item and if the
+# if the 16 character string is read successfully 2 or 3 times assume its the right one. I don't have any plans to 
+# implement this any futher right now.
+def NOT_CURRENTLY_USED_handleEQBazaarList(opcode, bytes):
+  if opcode == 22944:
+    readBytes(bytes, 18)
+    try:
+      while len(bytes) > 40: # min size i guess 
+        readString(bytes) # 16 character unique string
+        cost = readUInt32(bytes)
+        quantity = readUInt32(bytes)
+        id = readInt32(bytes)
+        icon = readInt32(bytes)
+        name = readString(bytes)
+        searchStat = readUInt32(bytes) # value of stat you searched for otherwise 0 if you didn't specify one
+        searchUnk = readUInt32(bytes) # set to 0 if item doesn't have the stat you searched for but it met the other criteria. in that case the item won't show up in-game
+        print('name: %s, id: %d, cost: %d, quantity: %d, icon: %d, searchStat: %d, unk: %d' % (name, id, cost, qty, icon, searchStat, searchUnk))
+    except:
+      pass
  
 def handleEQPacket(opcode, bytes):
   global ItemData
- 
+
   list = []
   while len(bytes) > 500:
     strSearch = 0
     index = 0
     while index < len(bytes) and strSearch < 16:
-      if bytes[index] >= 32 and bytes[index] <= 127:
+      if bytes[index] > 32 and bytes[index] <= 127:
         strSearch += 1
       else:
         strSearch = 0
@@ -194,20 +226,19 @@ def handleEQPacket(opcode, bytes):
     if strSearch == 16:
       try:
         item = readItem(bytes)
-        if item['name'] and item['name'].isprintable() and item['itemType'] < 100:
+        if item['name'] and item['name'].isprintable() and item['fileID'] and item['fileID'].startswith('IT'):
           list.append(item)
       except:
         pass
 
   # if at least a few parsed OK then keep them
-  if len(list) > 5:
-    for item in list:
-      ItemData[item['name']] = item
+  for item in list:
+    ItemData[item['name']] = item
 
 def saveItemData():
   file = open(OutputFile, 'w')
   printer = pprint.PrettyPrinter(indent=2, stream=file)
-  for key in sorted(ItemData.keys()):
+  for key in sorted([*ItemData]):
     printer.pprint(ItemData[key])
   file.close()
   print('Saved data for %d Items to %s' % (len(ItemData), OutputFile))
