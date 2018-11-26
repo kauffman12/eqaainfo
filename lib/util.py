@@ -70,7 +70,7 @@ def readUInt32(buffer):
 def readString(buffer, maxLength=0):
   result = None
   count = 0
-  while (buffer[count] != 0 and buffer[count] >= 32 and buffer[count] <= 127 and (not maxLength or count < maxLength)):
+  while (count < len(buffer) and buffer[count] != 0 and buffer[count] >= 32 and buffer[count] <= 127 and (not maxLength or count < maxLength)):
     count += 1
   if count > 0:
     try:

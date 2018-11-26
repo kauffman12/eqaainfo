@@ -5,7 +5,6 @@
 import io
 import pprint
 import re
-import struct
 import sys
 from lib.util import *
 from lib.eqreader import *
@@ -15,6 +14,18 @@ ItemData = dict()
 DBDescStrings = dict()
 DBTitleStrings = dict()
 DBSpells = dict()
+
+# list in bit order for augment types
+AugTypes = []
+for i in range(32):
+  AugTypes.append(i + 1)
+
+# list in bit order for classes
+ClassTypes = ['War', 'Clr', 'Pal', 'Rng', 'Shd', 'Dru', 'Mnk', 'Brd', 'Rog', 'Shm', 'Nec', 'Wiz', 'Mag', 'Enc', 'Bst', 'Ber', 'Merc']
+
+# list in bit order for slots
+SlotTypes = [ 'Charm', 'Ear', 'Head', 'Face', 'Ear2', 'Neck', 'Shoulders', 'Arms', 'Back', 'Wrist', 'Wrist2', 'Range', 
+          'Hands', 'Primary', 'Secondary', 'Fingers', 'Fingers2', 'Chest', 'Legs', 'Feet', 'Waist', 'Ammo', 'Power' ]
 
 def readItemEffect(bytes):
   result = dict()
@@ -37,7 +48,9 @@ def readItem(bytes):
   item['quantity'] = readUInt8(bytes)
 
   # lots of unknown
-  readBytes(bytes, 59)
+  readBytes(bytes, 14)
+  item['priceBuying'] = readUInt32(bytes)
+  readBytes(bytes, 41)
 
   # sometimes a 2nd name is set. Round Cut Tool might say Oval Cut Tool in this value
   # some mount items have a slightly different name here, ornaments say a different name
@@ -60,29 +73,28 @@ def readItem(bytes):
     readBytes(bytes, 7)
 
   readBytes(bytes, 27)
-  item['itemClass'] = readUInt8(bytes) # 2 book, container, 0 normal
+  item['itemClass'] = readUInt8(bytes) # 2 book, container, 0 general
   item['name'] = readString(bytes)
-  item['details'] = readString(bytes)
+  item['desc'] = readString(bytes)
   item['fileID'] = readString(bytes)
-  readBytes(bytes, 1) # dont know
+  item['fileID2'] = readString(bytes)
   item['itemID'] = readInt32(bytes)
-  item['weight'] = readInt8(bytes) / 10
-  readBytes(bytes, 3) # dont know
+  item['weight'] = readInt32(bytes) / 10
   item['temporary'] = readUInt8(bytes) ^ 1
   item['tradeable'] = readUInt8(bytes)
   item['attunable'] = readUInt8(bytes)
   item['size'] = readUInt8(bytes)
   item['slots'] = readUInt32(bytes)
-  item['sellPrice'] = readUInt32(bytes)
+  item['priceSelling'] = readUInt32(bytes)
   item['icon'] = readUInt32(bytes)
   readBytes(bytes, 1) # dont know
   item['usedInTradeskills'] = readUInt8(bytes)
-  item['cr'] = readInt8(bytes)
-  item['dr'] = readInt8(bytes)
-  item['pr'] = readInt8(bytes)
-  item['mr'] = readInt8(bytes)
-  item['fr'] = readInt8(bytes)
-  item['scr'] = readInt8(bytes)
+  item['cold'] = readInt8(bytes)
+  item['disease'] = readInt8(bytes)
+  item['poison'] = readInt8(bytes)
+  item['magic'] = readInt8(bytes)
+  item['fire'] = readInt8(bytes)
+  item['corrupt'] = readInt8(bytes)
   item['str'] = readInt8(bytes)
   item['sta'] = readInt8(bytes)
   item['agi'] = readInt8(bytes)
@@ -92,17 +104,19 @@ def readItem(bytes):
   item['wis'] = readInt8(bytes)
   item['hp'] = readInt32(bytes)
   item['mana'] = readInt32(bytes)
-  item['endurance'] = readInt32(bytes)
+  item['end'] = readInt32(bytes)
   item['ac'] = readInt32(bytes)
-  item['regen'] = readInt32(bytes)
+  item['hpRegen'] = readInt32(bytes)
   item['manaRegen'] = readInt32(bytes)
-  item['enduranceRegen'] = readInt32(bytes)
+  item['endRegen'] = readInt32(bytes)
   item['classMask'] = readUInt32(bytes)
   item['races'] = readUInt32(bytes)
   item['deity'] = readUInt32(bytes)
   item['skillModPercent'] = readInt32(bytes)
   item['skillModMax'] = readInt32(bytes)
   item['skillModType'] = readInt32(bytes)
+  #if 'Air Powered Blade of Repulsion' in item['name']:
+  #  readBytes(bytes, 449)
   readBytes(bytes, 20) # skip bane damage stuff for now
   item['magic'] = readInt8(bytes)
   item['castTime'] = readInt32(bytes)
@@ -111,26 +125,27 @@ def readItem(bytes):
   readBytes(bytes, 12) # req skill? bard checks
   item['lightsource'] = readInt8(bytes)
   item['delay'] = readInt8(bytes)
-  item['elemDamage'] = readInt8(bytes)
   item['elemDamageType'] = readInt8(bytes)
+  item['elemDamage'] = readInt8(bytes)
   item['range'] = readInt8(bytes)
   item['damage'] = readInt32(bytes)
   item['color'] = readUInt32(bytes)
-  item['prestige'] = readUInt32(bytes)
+  item['prestige'] = readUInt32(bytes) # flag but expansion related with EoK (24, 25, 26)
   item['itemType'] = readInt8(bytes)
-  item['material'] = readUInt32(bytes)
-
-  readBytes(bytes, 8) # more material stuff
-  readBytes(bytes, 4) # sell rate as a float?
-  readBytes(bytes, 4) # not sure
-  readUInt32(bytes) # listed unknown value on lucy and its the same for staff and feral guardian
-  readBytes(bytes, 12) # more unknown
-
-  item['charmFile'] = readString(bytes) # Ex: PS-POS-CasterDPS
-
+  item['materialType'] = readUInt32(bytes) # 0 = cloth, 1 = leather, 16 = plain robe, etc
+  readBytes(bytes, 8) # unknown
   readBytes(bytes, 4) # unknown
+  item['materialType2'] = readUInt32(bytes)
+  readUInt32(bytes) # listed unknown value on lucy and its the same for staff and feral guardian
+  item['extraDamageType'] = readUInt32(bytes) # 8 = backstab, 10 = base, 26 = flying kick, 30 = kick, 74 = frenzy
+  item['extraDamage'] = readUInt32(bytes)
+  readBytes(bytes, 4) # more unknown
+  item['charmFile'] = readString(bytes) # Ex: PS-POS-CasterDPS
+  item['augTypeMask'] = readUInt8(bytes)
+  readBytes(bytes, 3) # unknown
   readInt32(bytes) # some -1
-  readBytes(bytes, 3)
+  item['restrictions'] = readUInt8(bytes) # 4 = 2h only, 3 = 1h only
+  readBytes(bytes, 2)
 
   # what aug slots are in the item
   # always up to 6 slots?
@@ -144,19 +159,20 @@ def readItem(bytes):
   item['augSlots'] = augList
 
   readBytes(bytes, 21) # unknown
-
   # type of container or 0 if not one
   item['containerType'] = readUInt8(bytes)
   item['containerCapacity'] = readUInt8(bytes)
   item['containerItemSize'] = readUInt8(bytes)
   item['containerWeightReduction'] = readUInt8(bytes)
-  readBytes(bytes, 25) # unknown
-  readInt32(bytes) # some -1?
-  readBytes(bytes, 23) # unknown
+  readBytes(bytes, 3) # unknown
+  item['lore'] = readInt32(bytes)
+  readBytes(bytes, 2) # unknown
+  item['tributeValue'] = readUInt32(bytes)
+  readBytes(bytes, 17) # unknown
   readInt32(bytes) # some -1?
   readBytes(bytes, 6) # unknown
-
-  item['stackSize'] = readUInt32(bytes) # maybe stack size
+  item['maxStackSize'] = readUInt32(bytes) # maybe stack size
+  readBytes(bytes, 22) # unknown
 
   effs = 0
   effectsList = []
@@ -165,9 +181,9 @@ def readItem(bytes):
     effs += 1 
   item['effects'] = effectsList
 
-  readBytes(bytes, 6)
-  test = readUInt32(bytes)
-  readBytes(bytes, 8) # unknown
+  readBytes(bytes, 9) # unknown
+  item['purity'] = readUInt32(bytes)
+  readBytes(bytes, 5) # unknown
   item['hstr'] = readInt32(bytes)
   item['hint'] = readInt32(bytes)
   item['hwis'] = readInt32(bytes)
@@ -175,13 +191,15 @@ def readItem(bytes):
   item['hdex'] = readInt32(bytes)
   item['hsta'] = readInt32(bytes)
   item['hcha'] = readInt32(bytes)
-  item['healAmt'] = readInt32(bytes)
-  item['spellDmg'] = readInt32(bytes)
+  item['healAmount'] = readInt32(bytes)
+  item['spellDamage'] = readInt32(bytes)
   item['clair'] = readInt32(bytes)
 
-  readBytes(bytes, 10) # unknown
+  readBytes(bytes, 1) # 2 = cure potion, 4 = hedgewizard/tonics, 5 = latest celestial heal, 7 = spider's bite/dragon magic, 17 = fast mounts
+  readBytes(bytes, 9) # unknown
   item['placeable2'] = readUInt8(bytes)
-  readBytes(bytes, 60)
+
+  readBytes(bytes, 50)
   return item
 
 # I don't really see a good use for this data but this is what the structure looks like when you search for items
@@ -226,7 +244,7 @@ def handleEQPacket(opcode, bytes):
     if strSearch == 16:
       try:
         item = readItem(bytes)
-        if item['name'] and item['name'].isprintable() and item['fileID'] and item['fileID'].startswith('IT'):
+        if item['name'] and item['name'].isprintable() and item['itemClass'] < 3 and item['fileID'] and item['fileID'].startswith('IT'):
           list.append(item)
       except:
         pass
