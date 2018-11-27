@@ -6,18 +6,13 @@ import io
 import re
 import sys
 from lib.util import *
+from lib.eqdata import *
 from lib.eqreader import *
 
 AATableOpcode = 0x1142 # On Beta 11/20/18
 OutputFile = 'aainfo.txt'
 
 Categories = ['', '', 'Progression', '', '', 'Veteran Reward', 'Tradeskill', 'Expendable', 'Racial Innate', 'Everquest', '', 'Item Effect']
-# list of classes in bitmask order
-ClassList = ['Ber', 'War', 'Clr', 'Pal', 'Rng', 'Shd', 'Dru', 'Mnk', 'Brd', 'Rog', 'Shm', 'Nec', 'Wiz', 'Mag', 'Enc', 'Bst']
-Expansions = ['Classic', 'Ruins of Kunark', 'The Scars of Velious', 'The Shadows of Luclin', 'The Planes of Power', 'The Legacy of Ykesha',
-'Lost Dungeons of Norrath', 'Gates of Discord', 'Omens of War', 'Dragons of Norrath', 'Depths of Darkhollow', 'Prophecy of Ro',
-'The Serpent\'s Spine', 'The Buried Sea', 'Secrets of Faydwer', 'Seeds of Destruction', 'Underfoot', 'House of Thule', 'Veil of Alaris',
-'Rain of Fear', 'Call of the Forsaken', 'The Darkened Sea', 'The Broken Mirror', 'Empires of Kunark', 'Ring of Scale', 'The Burning Lands']
 Types = ['Unknown', 'General', 'Archetype', 'Class', 'Special', 'Focus']
 
 # Slot count + Slot 1/SPA info used to search for the AATableOpcode if it is unknown
@@ -38,20 +33,6 @@ WellKnownAAList = [
 
 AAData = dict()
 DBDescStrings = DBTitleStrings = DBSpells = None
-
-def getClassString(classMask):
-  classes = []
-  for c in range(0, len(ClassList)):
-    if ((classMask >> c & 1)):
-      classes.append(ClassList[c])
-
-  if (len(classes) == len(ClassList)):
-    result = 'All'
-  else:
-    classes.sort()
-    result = ' '.join(classes)
-
-  return result
 
 def findAAOpcode(opcode, bytes):
   global AATableOpcode
@@ -120,7 +101,7 @@ def handleEQPacket(opcode, bytes):
       readUInt32(bytes) # always 1
       abilityTimer = readUInt32(bytes)
       refreshTime = readUInt32(bytes)
-      oldClassMask = readUInt16(bytes)
+      classMask = readUInt16(bytes)
       berserkerMask = readUInt16(bytes)
       maxRank = readUInt32(bytes)
       prevDescSID = readInt32(bytes)
@@ -154,7 +135,8 @@ def handleEQPacket(opcode, bytes):
       if (category > -1):
         output.write('Category2:       %s\n' % Categories[category])
 
-      classString = getClassString(oldClassMask + berserkerMask)
+      # using class mask util from items so the data has to be shifted
+      classString = getClassString((classMask >> 1) + (32768 if berserkerMask else 0))
       output.write('Classes:         %s\n' % classString)
 
       if (expansion >= 0 and expansion < len(Expansions)):

@@ -2,7 +2,6 @@
 # EQ Packet handling based on EQExtractor created by EQEMu Development Team
 # --> Copyright (C) 2001-2010 EQEMu Development Team (http://eqemulator.net). Distributed under GPL version 2.
 #
-import os.path
 import zlib
 from scapy.all import *
 from lib.util import *
@@ -14,54 +13,6 @@ Fragments = []
 FragmentSeq = -1
 FragmentedPacketSize = 0
 LastSeq = -1
-
-DBStringsFile = 'data/dbstr_us.txt'
-DBSpellsFile = 'data/spells_us.txt'
-
-# Pulls all Titles from EQ DB files. 
-# DB Srtings Example: 16366^1^Sorcerer's Vengeance^0^
-def loadDBStrings():
-  descs = dict()
-  titles = dict()
-  if os.path.isfile(DBStringsFile):
-    print('Loading Strings DB from %s' % DBStringsFile)
-    db = open(DBStringsFile, 'r')
-    for line in db:
-      result = re.match(r'^(\d+)\^(\d)\^([\w\s\'\-\(\)\:\+\.\,\"\/\%\#\<\>]+?)\^[0]\^$', line)
-      if (result != None and result.group(2) == '1'):
-        titles[int(result.group(1))] = result.group(3)
-      elif (result != None and result.group(2) == '4'):
-        descs[int(result.group(1))] = result.group(3)
-        
-    if (len(titles) > 0):
-      print('Found %d titles' % len(titles))
-    else:
-      print('No titles found, copy over latest from your EQ directory?')
-    if (len(descs) > 0):
-      print('Found %d descriptions' % len(descs))
-    else:
-      print('No descriptions found, copy over latest from your EQ directory?')
-  else:
-    print('%s is missing No titles or descriptions will be loaded.' % DBStringsFile)
-  return descs, titles
-
-# Spells US Example: 2754^Frenzied Burnout I^
-def loadDBSpells():
-  spells = dict()
-  if os.path.isfile(DBSpellsFile):
-    print('Loading Spells DB from %s' % DBSpellsFile)
-    db = open(DBSpellsFile, 'r')
-    for line in db:
-      result = re.match(r'^(\d+)\^([\w\s\'\-\(\)\:\+]+?)\^', line)
-      if (result != None):
-        spells[int(result.group(1))] = result.group(2)
-    if (len(spells) > 0):
-      print('Found %d entries' % len(spells))
-    else:
-      print('No data found, copy over latest from your EQ directory?')
-  else:
-    print('%s is missing. No spells will be loaded.' % DBSpellsFile)
-  return spells
 
 def uncompress(bytes, isSubPacket, removeEnd):
   if (not isSubPacket and bytes[0] == 0x5a):

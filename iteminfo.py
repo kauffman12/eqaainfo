@@ -7,6 +7,7 @@ import pprint
 import re
 import sys
 from lib.util import *
+from lib.eqdata import *
 from lib.eqreader import *
 
 OutputFile = 'iteminfo.txt'
@@ -15,50 +16,53 @@ DBDescStrings = dict()
 DBTitleStrings = dict()
 DBSpells = dict()
 
-# list in bit order for augment types
-AugTypes = []
-for i in range(32):
-  AugTypes.append(i + 1)
+def updateItem(item, key, value, rule=None):
+  if not rule or rule(value):
+    item[key] = value
 
-# list in bit order for classes
-ClassTypes = ['War', 'Clr', 'Pal', 'Rng', 'Shd', 'Dru', 'Mnk', 'Brd', 'Rog', 'Shm', 'Nec', 'Wiz', 'Mag', 'Enc', 'Bst', 'Ber', 'Merc']
+def updateSubItem(item, subItem, key, value, rule=None):
+  if not rule or rule(value):
+    if not subItem in item:
+      item[subItem] = dict()
+    item[subItem][key] = value
 
-# list in bit order for slots
-SlotTypes = [ 'Charm', 'Ear', 'Head', 'Face', 'Ear2', 'Neck', 'Shoulders', 'Arms', 'Back', 'Wrist', 'Wrist2', 'Range', 
-          'Hands', 'Primary', 'Secondary', 'Fingers', 'Fingers2', 'Chest', 'Legs', 'Feet', 'Waist', 'Ammo', 'Power' ]
+def updateSubList(item, key, value, rule=None):
+  if not rule or rule(value):
+    if not key in item:
+      item[key] = []
+    item[key].append(value)
 
 def readItemEffect(bytes):
   result = dict()
-  result['SpellID'] = readInt32(bytes)
+  result['spellID'] = readInt32(bytes)
   readBytes(bytes, 1) # unknown
-  result['Type'] = readBytes(bytes, 1)[0]
-  result['Level'] = readInt32(bytes) # unknown
-  result['Charges'] = readInt32(bytes) # unknown
-  result['CastTime'] = readUInt32(bytes) # cast time not used for procs
-  result['RecastDelay'] = readUInt32(bytes) # recast time not used for procs
-  result['RecastType'] = readInt32(bytes) # unknown
-  result['ProcMod'] = readUInt32(bytes)
-  result['Name'] = readString(bytes)
+  result['type'] = readBytes(bytes, 1)[0]
+  result['level'] = readInt32(bytes) # unknown
+  result['charges'] = readInt32(bytes) # unknown
+  result['castTime'] = readUInt32(bytes) # cast time not used for procs
+  result['recastDelay'] = readUInt32(bytes) # recast time not used for procs
+  result['recastType'] = readInt32(bytes) # unknown
+  result['procMod'] = readUInt32(bytes)
+  result['name'] = readString(bytes)
   readInt32(bytes) # unknown -1 on guardian
   return result
 
 def readItem(bytes):
   item = dict()
-  item['dbStr'] = readString(bytes, 16) # 16 character string
+  readString(bytes, 16) # 16 character string
   item['quantity'] = readUInt8(bytes)
 
-  # lots of unknown
   readBytes(bytes, 14)
-  item['priceBuying'] = readUInt32(bytes)
+  # price an item will be bought for at merchant
+  updateSubItem(item, 'price', 'buy', readUInt32(bytes))
   readBytes(bytes, 41)
 
-  # sometimes a 2nd name is set. Round Cut Tool might say Oval Cut Tool in this value
-  # some mount items have a slightly different name here, ornaments say a different name
-  dbStr2Len = readUInt32(bytes) # length to read
-  if dbStr2Len > 0:
-    item['dbStr2'] = readString(bytes, dbStr2Len)
+  # items that can be convered show the name of the item they can be convereted to here
+  convertToNameLen = readUInt32(bytes) # length to read
+  if convertToNameLen > 0:
+    item['convertToName'] = readString(bytes, convertToNameLen)
+  updateItem(item, 'convertToID', readInt32(bytes), lambda x: x > 0)
 
-  item['id2'] = readUInt32(bytes)
   readUInt32(bytes) # unknown
 
   # if evolving item? seems to lineup but values vary
@@ -75,154 +79,148 @@ def readItem(bytes):
   readBytes(bytes, 27)
   item['itemClass'] = readUInt8(bytes) # 2 book, container, 0 general
   item['name'] = readString(bytes)
-  item['desc'] = readString(bytes)
-  item['fileID'] = readString(bytes)
-  item['fileID2'] = readString(bytes)
-  item['itemID'] = readInt32(bytes)
+
+  item['description'] = readString(bytes)
+  item['itemFile'] = readString(bytes)
+  updateItem(item, 'itemFile2', readString(bytes), lambda x: x)
+  item['id'] = readInt32(bytes)
   item['weight'] = readInt32(bytes) / 10
-  item['temporary'] = readUInt8(bytes) ^ 1
-  item['tradeable'] = readUInt8(bytes)
-  item['attunable'] = readUInt8(bytes)
+  item['temporary'] = readUInt8(bytes) == 0
+  item['tradeable'] = readUInt8(bytes) > 0
+  item['attunable'] = readUInt8(bytes) > 0
   item['size'] = readUInt8(bytes)
-  item['slots'] = readUInt32(bytes)
-  item['priceSelling'] = readUInt32(bytes)
+
+  # bit mask of slots
+  item['slotMask'] = readUInt32(bytes)
+  updateSubItem(item, 'price', 'sell', readUInt32(bytes))
   item['icon'] = readUInt32(bytes)
   readBytes(bytes, 1) # dont know
-  item['usedInTradeskills'] = readUInt8(bytes)
-  item['cold'] = readInt8(bytes)
-  item['disease'] = readInt8(bytes)
-  item['poison'] = readInt8(bytes)
-  item['magic'] = readInt8(bytes)
-  item['fire'] = readInt8(bytes)
-  item['corrupt'] = readInt8(bytes)
-  item['str'] = readInt8(bytes)
-  item['sta'] = readInt8(bytes)
-  item['agi'] = readInt8(bytes)
-  item['dex'] = readInt8(bytes)
-  item['cha'] = readInt8(bytes)
-  item['int'] = readInt8(bytes)
-  item['wis'] = readInt8(bytes)
-  item['hp'] = readInt32(bytes)
-  item['mana'] = readInt32(bytes)
-  item['end'] = readInt32(bytes)
-  item['ac'] = readInt32(bytes)
-  item['hpRegen'] = readInt32(bytes)
-  item['manaRegen'] = readInt32(bytes)
-  item['endRegen'] = readInt32(bytes)
+  item['usedInTradeskills'] = readUInt8(bytes) > 0
+
+  # resists
+  for resist in ['cold', 'disease', 'poison', 'magic', 'fire', 'corrupt']:
+    updateSubItem(item, 'resists', resist, readInt8(bytes), lambda x: x)
+
+  # stats
+  for stat in ['str', 'sta', 'agi', 'dex', 'cha', 'int', 'wis']:
+    updateSubItem(item, 'stats', stat, readInt8(bytes), lambda x: x)
+
+  # larger stats
+  for stat in ['hp', 'mana', 'end', 'ac']:
+    updateSubItem(item, 'stats', stat, readInt32(bytes), lambda x: x)
+  
+  # mod2s
+  for mod2 in ['hpRegen', 'manaRegen', 'endRegen']:
+    updateSubItem(item, 'mod2', mod2, readInt32(bytes), lambda x: x)
+
   item['classMask'] = readUInt32(bytes)
   item['races'] = readUInt32(bytes)
-  item['deity'] = readUInt32(bytes)
-  item['skillModPercent'] = readInt32(bytes)
-  item['skillModMax'] = readInt32(bytes)
-  item['skillModType'] = readInt32(bytes)
+  updateItem(item, 'deity', readUInt32(bytes), lambda x: x)
+
+  # skill modifier
+  for skillModifier in ['percent', 'max', 'skill']:
+    updateSubItem(item, 'skillModifier', skillModifier, readInt32(bytes), lambda x: x > 0)
+
   #if 'Air Powered Blade of Repulsion' in item['name']:
   #  readBytes(bytes, 449)
   readBytes(bytes, 20) # skip bane damage stuff for now
-  item['magic'] = readInt8(bytes)
-  item['castTime'] = readInt32(bytes)
-  item['reqLevel'] = readUInt32(bytes)
-  item['recLevel'] = readUInt32(bytes)
+  item['magic'] = readInt8(bytes) != 0
+
+  # used if item is food or a drink
+  item['consumable'] = readInt32(bytes) != 0
+  updateItem(item, 'reqLevel', readUInt32(bytes), lambda x: x > 0)
+  updateItem(item, 'recLevel', readUInt32(bytes), lambda x: x > 0)
+
   readBytes(bytes, 12) # req skill? bard checks
-  item['lightsource'] = readInt8(bytes)
-  item['delay'] = readInt8(bytes)
-  item['elemDamageType'] = readInt8(bytes)
-  item['elemDamage'] = readInt8(bytes)
-  item['range'] = readInt8(bytes)
-  item['damage'] = readInt32(bytes)
+  item['lightSource'] = readInt8(bytes)
+
+  # some weapon stats
+  updateItem(item, 'delay', readUInt8(bytes), lambda x: x)
+
+  # elemental damage
+  for elem in ['type', 'damage']:
+    updateSubItem(item, 'elemental', elem, readUInt8(bytes), lambda x: x)
+
+  # more weapon stats
+  updateItem(item, 'range', readUInt8(bytes), lambda x: x)
+  updateItem(item, 'damage', readInt32(bytes), lambda x: x)
+
   item['color'] = readUInt32(bytes)
   item['prestige'] = readUInt32(bytes) # flag but expansion related with EoK (24, 25, 26)
-  item['itemType'] = readInt8(bytes)
+  item['itemType'] = readInt8(bytes) # weapon/armor/inventory/book/etc
+
   item['materialType'] = readUInt32(bytes) # 0 = cloth, 1 = leather, 16 = plain robe, etc
   readBytes(bytes, 8) # unknown
   readBytes(bytes, 4) # unknown
-  item['materialType2'] = readUInt32(bytes)
-  readUInt32(bytes) # listed unknown value on lucy and its the same for staff and feral guardian
-  item['extraDamageType'] = readUInt32(bytes) # 8 = backstab, 10 = base, 26 = flying kick, 30 = kick, 74 = frenzy
-  item['extraDamage'] = readUInt32(bytes)
+  item['materialType2'] = readUInt32(bytes) # repeated material type?
+  readUInt32(bytes) # listed unknown value on lucy but it usually has a value thats shared by multiple items
+
+  # damage modifier like 8 = backstab, 10 = base, 26 = flying kick, 30 = kick, 74 = frenzy
+  for damageModifier in ['type', 'damage']:
+    updateSubItem(item, 'damageModifier', damageModifier, readUInt32(bytes), lambda x: x)
+
   readBytes(bytes, 4) # more unknown
-  item['charmFile'] = readString(bytes) # Ex: PS-POS-CasterDPS
-  item['augTypeMask'] = readUInt8(bytes)
+  updateItem(item, 'charmFile', readString(bytes), lambda x: x) # Ex: PS-POS-CasterDPS
+
+  # aug types this item can be used with if it's an augment
+  updateItem(item, 'augTypeMask', readUInt8(bytes), lambda x: x)
   readBytes(bytes, 3) # unknown
   readInt32(bytes) # some -1
-  item['restrictions'] = readUInt8(bytes) # 4 = 2h only, 3 = 1h only
-  readBytes(bytes, 2)
+  updateItem(item, 'augRestrictions', readUInt8(bytes), lambda x: x) # 4 = 2h only, 3 = 1h only
+  readBytes(bytes, 3)
 
-  # what aug slots are in the item
-  # always up to 6 slots?
-  augSlots = 0
-  augList = []
-  while augSlots < 6:
-    readBytes(bytes, 1) # unknown
-    augList.append(readInt8(bytes))
-    readUInt32(bytes) # always 1?
-    augSlots += 1
-  item['augSlots'] = augList
+  # types of aug slots for the 6 possible
+  for augSlots in range(6):
+    updateSubList(item, 'augSlots', readUInt32(bytes))
+    readBytes(bytes, 2) # always 1?
 
-  readBytes(bytes, 21) # unknown
-  # type of container or 0 if not one
-  item['containerType'] = readUInt8(bytes)
-  item['containerCapacity'] = readUInt8(bytes)
-  item['containerItemSize'] = readUInt8(bytes)
-  item['containerWeightReduction'] = readUInt8(bytes)
-  readBytes(bytes, 3) # unknown
+  readBytes(bytes, 20) # unknown
+
+  # container details
+  for containerInfo in ['type', 'capacity', 'maxItems', 'weightReduction']:
+    updateSubItem(item, 'container', containerInfo, readUInt8(bytes), lambda x: x)
+
+  readBytes(bytes, 2) # unknown
+  updateItem(item, 'bookContentsFile', readString(bytes), lambda x: x)
   item['lore'] = readInt32(bytes)
   readBytes(bytes, 2) # unknown
-  item['tributeValue'] = readUInt32(bytes)
-  readBytes(bytes, 17) # unknown
+  updateSubItem(item, 'price', 'tribute', readUInt32(bytes))
+  readBytes(bytes, 1) # unknown
+  updateSubItem(item, 'mod2', 'attack', readInt32(bytes), lambda x: x)
+  readBytes(bytes, 12) # unknown
   readInt32(bytes) # some -1?
   readBytes(bytes, 6) # unknown
   item['maxStackSize'] = readUInt32(bytes) # maybe stack size
   readBytes(bytes, 22) # unknown
 
-  effs = 0
-  effectsList = []
-  while effs < 9:
-    effectsList.append(readItemEffect(bytes))
-    effs += 1 
-  item['effects'] = effectsList
+  # effects/clickie/focus
+  for ecount in range(9):
+    updateSubList(item, 'effects', readItemEffect(bytes), lambda x: x['spellID'] > -1)
 
   readBytes(bytes, 9) # unknown
   item['purity'] = readUInt32(bytes)
-  readBytes(bytes, 5) # unknown
-  item['hstr'] = readInt32(bytes)
-  item['hint'] = readInt32(bytes)
-  item['hwis'] = readInt32(bytes)
-  item['hagi'] = readInt32(bytes)
-  item['hdex'] = readInt32(bytes)
-  item['hsta'] = readInt32(bytes)
-  item['hcha'] = readInt32(bytes)
-  item['healAmount'] = readInt32(bytes)
-  item['spellDamage'] = readInt32(bytes)
-  item['clair'] = readInt32(bytes)
+  readBytes(bytes, 1)
+  updateItem(item, 'backstabDmg', readUInt32(bytes), lambda x: x) # Ex Backstab Dmg 76
 
-  readBytes(bytes, 1) # 2 = cure potion, 4 = hedgewizard/tonics, 5 = latest celestial heal, 7 = spider's bite/dragon magic, 17 = fast mounts
+  # heroics
+  for heroic in ['str', 'int', 'wis', 'agi', 'dex', 'sta', 'cha']:
+    updateSubItem(item, 'heroics', heroic, readInt32(bytes), lambda x: x)
+
+  # more mod2 stats
+  for mod2 in ['healAmount', 'spellDmg', 'clairvoyance']:
+    updateSubItem(item, 'mod2', mod2, readInt32(bytes), lambda x: x)
+
+  readBytes(bytes, 1) # Ex 2 = cure potion, 5 = latest celestial heal, 7 = spider's bite/dragon magic, 17 = fast mounts
   readBytes(bytes, 9) # unknown
-  item['placeable2'] = readUInt8(bytes)
+  item['placeable'] = readInt8(bytes) != 0
 
+  # not always the end but we search for the next item
   readBytes(bytes, 50)
+
   return item
 
-# I don't really see a good use for this data but this is what the structure looks like when you search for items
-# in the bazaar. Instead of knownig the opcode you could probably just execute this search on every item and if the
-# if the 16 character string is read successfully 2 or 3 times assume its the right one. I don't have any plans to 
-# implement this any futher right now.
-def NOT_CURRENTLY_USED_handleEQBazaarList(opcode, bytes):
-  if opcode == 22944:
-    readBytes(bytes, 18)
-    try:
-      while len(bytes) > 40: # min size i guess 
-        readString(bytes) # 16 character unique string
-        cost = readUInt32(bytes)
-        quantity = readUInt32(bytes)
-        id = readInt32(bytes)
-        icon = readInt32(bytes)
-        name = readString(bytes)
-        searchStat = readUInt32(bytes) # value of stat you searched for otherwise 0 if you didn't specify one
-        searchUnk = readUInt32(bytes) # set to 0 if item doesn't have the stat you searched for but it met the other criteria. in that case the item won't show up in-game
-        print('name: %s, id: %d, cost: %d, quantity: %d, icon: %d, searchStat: %d, unk: %d' % (name, id, cost, qty, icon, searchStat, searchUnk))
-    except:
-      pass
- 
+# instead of relying on opcodes look for 16 character printable strings that seem to go along
+# with each item entry and try to parse them
 def handleEQPacket(opcode, bytes):
   global ItemData
 
@@ -244,7 +242,7 @@ def handleEQPacket(opcode, bytes):
     if strSearch == 16:
       try:
         item = readItem(bytes)
-        if item['name'] and item['name'].isprintable() and item['itemClass'] < 3 and item['fileID'] and item['fileID'].startswith('IT'):
+        if item['name'] and item['name'].isprintable() and item['itemClass'] < 3 and item['itemFile'] and item['itemFile'].startswith('IT'):
           list.append(item)
       except:
         pass
@@ -266,8 +264,8 @@ def main(args):
     print ('Usage: ' + args[0] + ' <pcap file>')
   else:
     try:
-      DBDescStrings, DBTitleStrings = loadDBStrings()
-      DBSpells = loadDBSpells()
+      #DBDescStrings, DBTitleStrings = loadDBStrings()
+      #DBSpells = loadDBSpells()
 
       print('Reading %s' % args[1])
       readPcap(handleEQPacket, args[1])

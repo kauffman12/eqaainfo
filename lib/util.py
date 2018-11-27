@@ -8,8 +8,10 @@ def findIndexOf(bytes, data, size=4):
     barr = bytearray(data.encode())
   elif isinstance(data, float):
     barr = bytearray(struct.pack('f', data))
-  else:
+  elif isinstance(data, int):
     barr = bytearray(data.to_bytes(size, byteorder='little'))
+  else:
+    barr = data
   end = len(barr)
   while len(bytes) >= end:
     if barr == bytes[start:end]:
