@@ -172,7 +172,7 @@ def readItem(bytes):
   # types of aug slots for the 6 possible
   for augSlots in range(6):
     updateSubList(item, 'augSlots', readUInt32(bytes))
-    readBytes(bytes, 2) # always 1?
+    readBytes(bytes, 2)
 
   readBytes(bytes, 20) # unknown
 
