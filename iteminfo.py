@@ -33,19 +33,19 @@ def updateSubList(item, key, value, rule=None):
     item[key].append(value)
 
 def readItemEffect(bytes):
-  result = dict()
-  result['spellID'] = readInt32(bytes)
-  readBytes(bytes, 1) # unknown
-  result['type'] = readBytes(bytes, 1)[0]
-  result['level'] = readInt32(bytes) # unknown
-  result['charges'] = readInt32(bytes) # unknown
-  result['castTime'] = readUInt32(bytes) # cast time not used for procs
-  result['recastDelay'] = readUInt32(bytes) # recast time not used for procs
-  result['recastType'] = readInt32(bytes) # unknown
-  result['procMod'] = readUInt32(bytes)
-  result['name'] = readString(bytes)
-  readInt32(bytes) # unknown -1 on guardian
-  return result
+  effect = dict()
+  effect['spellID'] = readInt32(bytes)
+  effect['reqLevel'] = readUInt8(bytes)
+  effect['type'] = readInt8(bytes)
+  effect['level'] = readInt32(bytes)
+  effect['charges'] = readInt32(bytes)
+  effect['castTime'] = readUInt32(bytes) # cast time not used for procs
+  effect['recastDelay'] = readUInt32(bytes) # recast time not used for procs
+  effect['recastType'] = readInt32(bytes)
+  effect['procMod'] = readUInt32(bytes)
+  effect['name'] = readString(bytes)
+  effect['unknown'] = readInt32(bytes)
+  return effect
 
 def readItem(bytes):
   item = dict()
@@ -57,7 +57,7 @@ def readItem(bytes):
   updateSubItem(item, 'price', 'buy', readUInt32(bytes))
   readBytes(bytes, 41)
 
-  # items that can be convered show the name of the item they can be convereted to here
+  # items that can be converted show the name of the item they can be convereted to here
   convertToNameLen = readUInt32(bytes) # length to read
   if convertToNameLen > 0:
     item['convertToName'] = readString(bytes, convertToNameLen)
@@ -65,7 +65,7 @@ def readItem(bytes):
 
   readUInt32(bytes) # unknown
 
-  # if evolving item? seems to lineup but values vary
+  # if evolving item? seems to lineup but values vary. works for trophy, skull of null, etc
   item['evolving'] = readUInt8(bytes)
   if item['evolving']:
     readInt32(bytes)# some id maybe
@@ -79,7 +79,6 @@ def readItem(bytes):
   readBytes(bytes, 27)
   item['itemClass'] = readUInt8(bytes) # 2 book, container, 0 general
   item['name'] = readString(bytes)
-
   item['description'] = readString(bytes)
   item['itemFile'] = readString(bytes)
   updateItem(item, 'itemFile2', readString(bytes), lambda x: x)
@@ -159,7 +158,7 @@ def readItem(bytes):
   for damageModifier in ['type', 'damage']:
     updateSubItem(item, 'damageModifier', damageModifier, readUInt32(bytes), lambda x: x)
 
-  readBytes(bytes, 4) # more unknown
+  readUInt32(bytes) # more unknown
   updateItem(item, 'charmFile', readString(bytes), lambda x: x) # Ex: PS-POS-CasterDPS
 
   # aug types this item can be used with if it's an augment
@@ -190,7 +189,7 @@ def readItem(bytes):
   readBytes(bytes, 12) # unknown
   readInt32(bytes) # some -1?
   readBytes(bytes, 6) # unknown
-  item['maxStackSize'] = readUInt32(bytes) # maybe stack size
+  item['maxStackSize'] = readUInt32(bytes)
   readBytes(bytes, 22) # unknown
 
   # effects/clickie/focus
@@ -216,7 +215,6 @@ def readItem(bytes):
 
   # not always the end but we search for the next item
   readBytes(bytes, 50)
-
   return item
 
 # instead of relying on opcodes look for 16 character printable strings that seem to go along
@@ -242,7 +240,7 @@ def handleEQPacket(opcode, bytes):
     if strSearch == 16:
       try:
         item = readItem(bytes)
-        if item['name'] and item['name'].isprintable() and item['itemClass'] < 3 and item['itemFile'] and item['itemFile'].startswith('IT'):
+        if item['name'] and item['name'].isprintable() and item['itemFile'] and item['itemFile'].startswith('IT') and sum(item['augSlots']) < 150:
           list.append(item)
       except:
         pass
