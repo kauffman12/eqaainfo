@@ -49,6 +49,7 @@ def readItemEffect(bytes):
 
 def readItem(bytes):
   item = dict()
+
   readString(bytes, 16) # 16 character string
   item['quantity'] = readUInt8(bytes)
 
@@ -72,7 +73,6 @@ def readItem(bytes):
     item['evolvedLevel'] = readUInt8(bytes)
     readBytes(bytes, 3)
     readBytes(bytes, 8) # somehow describes percent into current level and/or difficulty
-    item['evolvedLevelMin'] = readUInt8(bytes)
     item['evolvedLevelMax'] = readUInt8(bytes)
     readBytes(bytes, 7)
 

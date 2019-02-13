@@ -3,7 +3,7 @@ import os.path
 DBSpellsFile = 'data/spells_us.txt'
 DBSpellsStrFile = 'data/spells_us_str.txt'
 RANK_LETTERS = [ 'X', 'V', 'I', 'L', 'C', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' ]
-IGNORE_LIST = [ 'Reserved', 'RESERVED', 'SKU', 'Type 3', 'Type3', 'BETA', 'Beta', 'Damage', 'N/A', 'TEST', 'PH', 'Placeholder' ]
+IGNORE_LIST = [ 'Reserved', 'RESERVED', 'SKU', 'Type 3', 'Type3', 'BETA', 'Beta', 'Damage', 'N/A', 'NA ', 'TEST', 'PH', 'Placeholder' ]
 
 def abbreviate(name):
   result = name
@@ -59,7 +59,7 @@ if os.path.isfile(DBSpellsFile):
       if level <= 254:
         classMask += (1 << (i - 38))
     if id in dbStrings:
-      entry = '%s^%d^%d^%s^%s' % (name, beneficial, classMask, dbStrings[id]['landsOnYou'], dbStrings[id]['landsOnOther'])
+      entry = '%s^%s^%d^%d^%s^%s' % (id, name, beneficial, classMask, dbStrings[id]['landsOnYou'], dbStrings[id]['landsOnOther'])
       myDB.append(entry)
 
   output = open('output.txt', 'w')
