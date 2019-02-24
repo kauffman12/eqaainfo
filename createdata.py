@@ -4,8 +4,8 @@ DBSpellsFile = 'data/spells_us.txt'
 DBSpellsStrFile = 'data/spells_us_str.txt'
 RANK_LETTERS = [ 'X', 'V', 'I', 'L', 'C', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' ]
 IGNORE_LIST = [ 'Reserved', 'RESERVED', 'SKU', 'Type 3', 'Type3', 'BETA', 'Beta', 'Damage', 'N/A', 'NA ', 'TEST', 'PH', 'Placeholder' ]
-NOT_PROC = [ 'Cacophony', 'Necromantic Curse' ]
-IS_PROC = [ 'Evoker\'s Synergy Strike', 'Arcane Fusion' ]
+NOT_PROC = [ 'Cacophony', 'Necromantic Curse', 'Shock of Magic' ]
+IS_PROC = [ 'Evoker\'s Synergy Strike', 'Arcane Fusion', 'Cryomantic Stasis' ]
 
 def inNotProcList(name):
   for test in NOT_PROC:
@@ -78,9 +78,17 @@ if os.path.isfile(DBSpellsFile):
       proc = 1
     elif classMask != 0 and inProcList(name):
       proc = 1
+	  
+    damaging = 0
+    if beneficial == 0:
+      for spa in data[-1].split('$'):
+        values = spa.split('|')
+        if len(values) > 1:
+          if values[1] == '0' or values[1] == '79':
+            damaging = 1
 
     if id in dbStrings:
-      entry = '%s^%s^%d^%d^%s^%s^%s' % (id, name, beneficial, classMask, dbStrings[id]['landsOnYou'], dbStrings[id]['landsOnOther'], proc)
+      entry = '%s^%s^%d^%d^%s^%s^%s^%s' % (id, name, beneficial, classMask, dbStrings[id]['landsOnYou'], dbStrings[id]['landsOnOther'], damaging, proc)
       myDB.append(entry)
 
   output = open('output.txt', 'w')
