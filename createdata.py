@@ -67,6 +67,8 @@ if os.path.isfile(DBSpellsFile):
       continue
 
     beneficial = int(data[30])
+    spellTarget = int(data[32])
+
     proc = 0
     classMask = 0
     for i in range(38, 38+16):
@@ -88,7 +90,7 @@ if os.path.isfile(DBSpellsFile):
             damaging = 1
 
     if id in dbStrings:
-      entry = '%s^%s^%d^%d^%s^%s^%s^%s' % (id, name, beneficial, classMask, dbStrings[id]['landsOnYou'], dbStrings[id]['landsOnOther'], damaging, proc)
+      entry = '%s^%s^%d^%d^%d^%s^%s^%s^%s' % (id, name, beneficial, spellTarget, classMask, dbStrings[id]['landsOnYou'], dbStrings[id]['landsOnOther'], damaging, proc)
       myDB.append(entry)
 
   output = open('output.txt', 'w')
