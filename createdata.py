@@ -5,7 +5,21 @@ DBSpellsStrFile = 'data/spells_us_str.txt'
 RANK_LETTERS = [ 'X', 'V', 'I', 'L', 'C', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' ]
 IGNORE_LIST = [ 'Reserved', 'RESERVED', 'SKU', 'Type 3', 'Type3', 'BETA', 'Beta', 'Damage', 'N/A', 'NA ', 'TEST', 'PH', 'Placeholder' ]
 NOT_PROC = [ 'Cacophony', 'Necromantic Curse', 'Shock of Magic' ]
-IS_PROC = [ 'Arcane Fusion', 'Blood Pact Strike', 'Cryomantic Stasis', 'Decapitation', 'Envenomed Blades Strike', 'Infusion of Thunder Shock', 'Pyromantic Ignition', 'Second Spire of the Savage Lord Strike', 'Storm Blade Strike', 'Synergy Strike', 'Zan Fi\'s Echoes Strike' ]
+IS_PROC = [ 'Arcane Fusion', 'Blood Pact Strike', 'Cryomantic Stasis', 'Decapitation', 'Envenomed Blades Strike', 'Gelid Claw', 'Infusion of Thunder Shock', 'Pyromantic Ignition', 'Second Spire of the Savage Lord Strike', 'Storm Blade Strike', 'Synergy Strike', 'Zan Fi\'s Echoes Strike' ]
+
+ALT_NAMES = dict()
+ALT_NAMES['Arms of Holy Wrath I Recourse'] = 'ArmsOfHolyWrathIRecourse'
+ALT_NAMES['Arms of Holy Wrath II Recourse'] = 'ArmsOfHolyWrathIIRecourse'
+ALT_NAMES['Arms of Holy Wrath III Recourse'] = 'ArmsOfHolyWrathIIIRecourse'
+ALT_NAMES['Arms of Holy Wrath IV Recourse'] = 'ArmsOfHolyWrathIVRecourse'
+ALT_NAMES['Arms of Holy Wrath V Recourse'] = 'ArmsOfHolyWrathVRecourse'
+ALT_NAMES['Arms of Holy Wrath VI Recourse'] = 'ArmsOfHolyWrathVIRecourse'
+ALT_NAMES['Hand Of Holy Wrath I Recourse'] = 'HandOfHolyWrathIRecourse'
+ALT_NAMES['Hand Of Holy Wrath II Recourse'] = 'HandOfHolyWrathIIRecourse'
+ALT_NAMES['Hand Of Holy Wrath III Recourse'] = 'HandOfHolyWrathIIIRecourse'
+ALT_NAMES['Hand Of Holy Wrath IV Recourse'] = 'HandOfHolyWrathIVRecourse'
+ALT_NAMES['Hand Of Holy Wrath V Recourse'] = 'HandOfHolyWrathVRecourse'
+ALT_NAMES['Hand Of Holy Wrath VI Recourse'] = 'HandOfHolyWrathVIRecourse'
 
 def inNotProcList(name):
   for test in NOT_PROC:
@@ -92,6 +106,11 @@ if os.path.isfile(DBSpellsFile):
     if id in dbStrings:
       entry = '%s^%s^%d^%d^%d^%s^%s^%s^%s' % (id, name, beneficial, spellTarget, classMask, dbStrings[id]['landsOnYou'], dbStrings[id]['landsOnOther'], damaging, proc)
       myDB.append(entry)
+
+      if name in ALT_NAMES:
+        name = ALT_NAMES[name]
+        entry = '%s^%s^%d^%d^%d^%s^%s^%s^%s' % (id, name, beneficial, spellTarget, classMask, dbStrings[id]['landsOnYou'], dbStrings[id]['landsOnOther'], damaging, proc)
+        myDB.append(entry)
 
   output = open('output.txt', 'w')
 
