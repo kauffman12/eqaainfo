@@ -5,7 +5,7 @@ DBSpellsStrFile = 'data/spells_us_str.txt'
 RANK_LETTERS = [ 'X', 'V', 'I', 'L', 'C', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' ]
 IGNORE_LIST = [ 'Reserved', 'RESERVED', 'SKU', 'Type 3', 'Type3', 'BETA', 'Beta', 'Damage', 'N/A', 'NA ', 'TEST', 'PH', 'Placeholder' ]
 NOT_PROC = [ 'Cacophony', 'Necromantic Curse', 'Shock of Magic' ]
-IS_PROC = [ 'Arcane Fusion', 'Blood Pact Strike', 'Cryomantic Stasis', 'Decapitation', 'Envenomed Blades Strike', 'Gelid Claw', 'Infusion of Thunder Shock', 'Pyromantic Ignition', 'Second Spire of the Savage Lord Strike', 'Storm Blade Strike', 'Synergy Strike', 'Zan Fi\'s Echoes Strike' ]
+IS_PROC = [ 'Arcane Fusion', 'Bite of the Asp', 'Blood Pact Strike', 'Cryomantic Stasis', 'Decapitation', 'Envenomed Blades Strike', 'Gelid Claw', 'Infusion of Thunder Shock', 'Pyromantic Ignition', 'Second Spire of the Savage Lord Strike', 'Storm Blade Strike', 'Synergy Strike', 'Zan Fi\'s Echoes Strike' ]
 
 ALT_NAMES = dict()
 ALT_NAMES['Arms of Holy Wrath I Recourse'] = 'ArmsOfHolyWrathIRecourse'

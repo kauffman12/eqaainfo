@@ -5,12 +5,16 @@
 import io
 import re
 import sys
+import datetime
 from lib.util import *
 from lib.eqdata import *
 from lib.eqreader import *
 
 AATableOpcode = 0x1142 # On Beta 11/20/18
 OutputFile = 'aainfo.txt'
+
+OutputFormat = 'EQSPELLPARSER'
+#OutputFormat = 'PRETTY'
 
 Categories = ['', '', 'Progression', '', '', 'Veteran Reward', 'Tradeskill', 'Expendable', 'Racial Innate', 'Everquest', '', 'Item Effect']
 Types = ['Unknown', 'General', 'Archetype', 'Class', 'Special', 'Focus']
@@ -34,6 +38,116 @@ WellKnownAAList = [
 AAData = dict()
 DBDescStrings = DBTitleStrings = DBSpells = None
 
+class AARecord():
+  pass
+
+def eqSpellParserOutput(record):
+  # output the spell in eqspellparser aa format
+  data = []
+  data.append(record.descID)
+  data.append(record.aaID)
+  data.append(record.prevDescSID)
+  data.append(record.titleSID)
+  data.append(record.descSID2)
+  data.append(record.rank)
+  data.append(record.maxRank)
+  data.append(record.itemDBClassMask)
+  data.append(record.reqLevel)
+  data.append(record.cost)
+  data.append(record.totalCost)
+  data.append(record.spellID)
+  data.append(record.refreshTime)
+  data.append(record.abilityTimer)
+  data.append(record.type)
+  data.append(record.expansion)
+  data.append(record.category)
+  data.append(','.join([str(x) for x in record.spaData]))
+  if record.reqSkills:
+      data.append(','.join([str(x) + ',' + str(y) for x, y in zip(record.reqSkills, record.reqRanks)]))
+  else:
+      data.append('0,0') # just to match what the eqextractor dump was
+  data.append(datetime.fromtimestamp(record.timeStamp).isoformat()[0:10])
+  
+  title = DBTitleStrings.get(record.titleSID) 
+  if (title == None):
+    title = str(record.titleSID)
+    if (len(DBTitleStrings) > 0):
+      print('AA Title not found in DB, possible problem parsing data (format change?)')  
+  
+  AAData['%s-%02d' % (title, record.rank)] = '^'.join([str(x) for x in data]) + '\n'
+            
+def prettyOutput(record):
+  title = DBTitleStrings.get(record.titleSID) 
+  if (title == None):
+    title = str(record.titleSID)
+    if (len(DBTitleStrings) > 0):
+      print('AA Title not found in DB, possible problem parsing data (format change?)')
+
+  output = io.StringIO()
+  output.write('Ability:         %s (%d)\n' % (title, record.rank))
+  output.write('Activation ID:   %d\n' % record.aaID)
+
+  if (record.type > -1):
+    output.write('Category:        %s\n' % Types[record.type])
+  if (record.category > -1):
+    output.write('Category2:       %s\n' % Categories[record.category])
+
+  # using class mask util which is based on the item format
+  classString = getClassString(record.itemDBClassMask)
+  output.write('Classes:         %s\n' % classString)
+
+  if (record.expansion >= 0 and record.expansion < len(Expansions)):
+    expansion = Expansions[record.expansion]
+  output.write('Expansion:       %s\n' % expansion)
+
+  if (record.maxActivationLevel > 0):
+    output.write('Max Level:       %d\n' % record.maxActivationLevel)
+  output.write('Min Level:       %d\n' % record.reqLevel)
+  output.write('Rank:            %d / %d\n' % (record.rank, record.maxRank))
+  output.write('Rank Cost:       %d AAs\n' % record.cost)
+
+  if (record.refreshTime > 0):
+    output.write('Reuse Time:      %ds\n' % record.refreshTime)
+    output.write('Timer ID:        %d\n' % record.abilityTimer)
+  else:
+    output.write('Reuse Time:      Passive\n')
+
+  if (record.spellID > 0):
+    spellName = DBSpells.get(record.spellID)
+    if (spellName == None and len(DBSpells) > 0):
+      print('Spell Title not found in DB for %d, possible problem parsing data (format change?)' % record.spellID)
+    if (spellName == None):
+      spellName = record.spellID
+    else:
+      spellName = '%s #%d' % (spellName, record.spellID)
+    output.write('Spell:           %s\n' % spellName)
+
+  output.write('Total Cost:      %d AAs\n' % record.totalCost)
+
+  for i in range(len(record.reqRanks)):
+    output.write('Requirements:    Rank %d of AA/Skill: %d\n' % (record.reqRanks[i], record.reqSkills[i]))
+
+  if (record.spaCount > 0):
+    output.write('Found %d SPA Slots:\n' % record.spaCount)
+
+  while len(record.spaData) > 3:
+    spa = record.spaData.pop(0)
+    base1 = record.spaData.pop(0)
+    base2 = record.spaData.pop(0)
+    slot = record.spaData.pop(0)
+    output.write('   Slot:   %3d   SPA:   %3d   Base1:   %6d   Base2:   %6d\n' % (slot, spa, base1, base2))
+
+  desc = DBDescStrings.get(record.descSID2)
+  if (desc == None):
+    desc = record.descSID2 
+  else:
+    desc = '\n   ' + desc.replace('<br><br>', '\n   ').replace('<br>', '\n   ')
+  output.write('Description:    %s\n' % desc)
+
+  output.write('\n')
+  AAData['%s-%02d' % (title, record.rank)] = output.getvalue()
+  output.close()
+
 def findAAOpcode(opcode, bytes):
   global AATableOpcode
 
@@ -55,7 +169,7 @@ def findAAOpcode(opcode, bytes):
           start += 1
           end += 1
  
-def handleEQPacket(opcode, bytes):
+def handleEQPacket(opcode, bytes, timeStamp):
   global AAData
  
   # handle search for opcode
@@ -65,131 +179,76 @@ def handleEQPacket(opcode, bytes):
   # save an AA if the opcode is correct
   elif (AATableOpcode != 0 and opcode == AATableOpcode):
     try:
-      descID = readInt32(bytes)
+      record = AARecord()
+      record.timeStamp = timeStamp
+      record.descID = readInt32(bytes)
       readInt8(bytes) # always 1
-      hotKeySID = readInt32(bytes)
-      hotKeySID2 = readInt32(bytes)
-      titleSID = readInt32(bytes)
-      descSID2 = readInt32(bytes)
-      reqLevel = readUInt32(bytes)
-      cost = readUInt32(bytes)
-      aaID = readUInt32(bytes)
-      rank = readUInt32(bytes)
+      record.hotKeySID = readInt32(bytes)
+      record.hotKeySID2 = readInt32(bytes)
 
-      reqSkills = []
-      reqSkillCount = readUInt32(bytes)
-      if (reqSkillCount < 5): # or some reasonable value so theres no crazy long loops
-        for s in range(reqSkillCount):
-          value = readUInt32(bytes)
-          if (value > 0):
-            reqSkills.insert(0, value)
-      else:
-        raise TypeError('handleEQPacket: Bad AA format')
-
-      reqRanks = []
-      reqRankCount = readUInt32(bytes)
-      if (reqRankCount < 5): # or some reasonable value so theres no crazy long loops
-        for p in range(reqRankCount):
-          value = readUInt32(bytes)
-          if (value > 0):
-            reqRanks.insert(0, value)
-      else:
-        raise TypeError('handleEQPacket: Bad AA format')
-
-      type = readUInt32(bytes)
-      spellID = readInt32(bytes)
-      readUInt32(bytes) # always 1
-      abilityTimer = readUInt32(bytes)
-      refreshTime = readUInt32(bytes)
-      classMask = readUInt16(bytes)
-      berserkerMask = readUInt16(bytes)
-      maxRank = readUInt32(bytes)
-      prevDescSID = readInt32(bytes)
-      nextDescSID = readInt32(bytes)
-      totalCost = readUInt32(bytes)
-      readBytes(bytes, 10) # unknown
-      expansion = readUInt32(bytes)
-      category = readInt32(bytes)
-      readBytes(bytes, 4) #unknown
-      expansion2 = readUInt32(bytes) # required expansion? it's not always set
-      maxActivationLevel = readUInt32(bytes) # max player level that can use the AA
-      isGlyph = readInt8(bytes) == 1
-      spaCount = readUInt32(bytes)
-
-      # lookup Title from DB
-      if (titleSID == -1):
+      record.titleSID = readInt32(bytes)
+      if (record.titleSID == -1):
         raise TypeError('handleEQPacket: Bad AA format, missing title')
 
-      title = DBTitleStrings.get(titleSID) 
-      if (title == None):
-        title = str(titleSID)
-        if (len(DBTitleStrings) > 0):
-          print('AA Title not found in DB, possible problem parsing data (format change?)')
-
-      output = io.StringIO()
-      output.write('Ability:         %s (%d)\n' % (title, rank))
-      output.write('Activation ID:   %d\n' % aaID)
-
-      if (type > -1):
-        output.write('Category:        %s\n' % Types[type])
-      if (category > -1):
-        output.write('Category2:       %s\n' % Categories[category])
-
-      # using class mask util from items so the data has to be shifted
-      classString = getClassString((classMask >> 1) + (32768 if berserkerMask else 0))
-      output.write('Classes:         %s\n' % classString)
-
-      if (expansion >= 0 and expansion < len(Expansions)):
-        expansion = Expansions[expansion]
-      output.write('Expansion:       %s\n' % expansion)
-
-      if (maxActivationLevel > 0):
-        output.write('Max Level:       %d\n' % maxActivationLevel)
-      output.write('Min Level:       %d\n' % reqLevel)
-      output.write('Rank:            %d / %d\n' % (rank, maxRank))
-      output.write('Rank Cost:       %d AAs\n' % cost)
-
-      if (refreshTime > 0):
-        output.write('Reuse Time:      %ds\n' % refreshTime)
-        output.write('Timer ID:        %d\n' % abilityTimer)
+      record.descSID2 = readInt32(bytes)
+      record.reqLevel = readUInt32(bytes)
+      record.cost = readUInt32(bytes)
+      record.aaID = readUInt32(bytes)
+      record.rank = readUInt32(bytes)
+      
+      record.reqSkills = []
+      record.reqSkillCount = readUInt32(bytes)
+      if (record.reqSkillCount < 5): # or some reasonable value so theres no crazy long loops
+        for s in range(record.reqSkillCount):
+          value = readUInt32(bytes)
+          if (value > 0):
+            record.reqSkills.insert(0, value)
       else:
-        output.write('Reuse Time:      Passive\n')
+        raise TypeError('handleEQPacket: Bad AA format')
 
-      if (spellID > 0):
-        spellName = DBSpells.get(spellID)
-        if (spellName == None and len(DBSpells) > 0):
-          print('Spell Title not found in DB for %d, possible problem parsing data (format change?)' % spellID)
-        if (spellName == None):
-          spellName = spellID
-        else:
-          spellName = '%s #%d' % (spellName, spellID)
-        output.write('Spell:           %s\n' % spellName)
-
-      output.write('Total Cost:      %d AAs\n' % totalCost)
-
-      for i in range(len(reqRanks)):
-        output.write('Requirements:    Rank %d of AA/Skill: %d\n' % (reqRanks[i], reqSkills[i]))
-
-      if (spaCount > 0):
-        output.write('Found %d SPA Slots:\n' % spaCount)
-
-      for t in range(spaCount):
-        spa = readUInt32(bytes)
-        base1 = readInt32(bytes)
-        base2 = readInt32(bytes)
-        slot = readUInt32(bytes)
-        output.write('   Slot:   %3d   SPA:   %3d   Base1:   %6d   Base2:   %6d\n' % (slot, spa, base1, base2))
-
-      desc = DBDescStrings.get(descSID2)
-      if (desc == None):
-        desc = descSID2 
+      record.reqRanks = []
+      record.reqRankCount = readUInt32(bytes)
+      if (record.reqRankCount < 5): # or some reasonable value so theres no crazy long loops
+        for p in range(record.reqRankCount):
+          value = readUInt32(bytes)
+          if (value > 0):
+            record.reqRanks.insert(0, value)
       else:
-        desc = '\n   ' + desc.replace('<br><br>', '\n   ').replace('<br>', '\n   ')
-      output.write('Description:    %s\n' % desc)
+        raise TypeError('handleEQPacket: Bad AA format')
 
-      output.write('\n')
-      AAData['%s-%02d' % (title, rank)] = output.getvalue()
-      output.close()
+      record.type = readUInt32(bytes)
+      record.spellID = readInt32(bytes)
+      readUInt32(bytes) # always 1
+      record.abilityTimer = readUInt32(bytes)
+      record.refreshTime = readUInt32(bytes)
+      record.classMask = readUInt16(bytes)
+      record.berserkerMask = readUInt16(bytes)
+      record.itemDBClassMask = (record.classMask >> 1) + (32768 if record.berserkerMask else 0)
+      record.maxRank = readUInt32(bytes)
+      record.prevDescSID = readInt32(bytes)
+      record.nextDescSID = readInt32(bytes)
+      record.totalCost = readUInt32(bytes)
+      readBytes(bytes, 10) # unknown
+      record.expansion = readUInt32(bytes)
+      record.category = readInt32(bytes)
+      readBytes(bytes, 4) #unknown
+      record.expansion2 = readUInt32(bytes) # required expansion? it's not always set
+      record.maxActivationLevel = readUInt32(bytes) # max player level that can use the AA
+      record.isGlyph = readInt8(bytes) == 1
+      record.spaCount = readUInt32(bytes)
+      record.spaData = []
+      for _ in range(record.spaCount):
+        for _ in range(4):
+          record.spaData.append(readInt32(bytes))
+
+      # print
+      if OutputFormat == 'EQSPELLPARSER':
+        eqSpellParserOutput(record)
+      elif OutputFormat == 'PRETTY':
+        prettyOutput(record)
+      else:
+        print('Invalid OutputFormat specified')
+        
     except TypeError as error:
       pass #print(error)
 
