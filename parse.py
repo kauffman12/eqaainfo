@@ -10,7 +10,7 @@ from lib.util import *
 from lib.eqdata import *
 from lib.eqreader import *
 
-AATableOpcode = 0x1142 # On Beta 11/20/18
+AATableOpcode = 0x5d63 
 OutputFile = 'aainfo.txt'
 
 OutputFormat = 'EQSPELLPARSER'
@@ -250,7 +250,8 @@ def handleEQPacket(opcode, bytes, timeStamp):
         print('Invalid OutputFormat specified')
         
     except TypeError as error:
-      pass #print(error)
+      #pass
+      print(error)
 
 def saveAAData():
   file = open(OutputFile, 'w')

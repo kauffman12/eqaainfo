@@ -1,14 +1,21 @@
 # eqaainfo
-Read EQ AA data from network capture
+Parse EQ AA data from network capture
 
 Requirements:
 1. Python 3.6+
 2. pip install scapy
 
-Instructions:
-1. Capture network data to a PCAP file using tools such as Wireshark or tcpdump
-2. Login to Test server and reset/rebuy your AAs during the capture
-3. Copy dbstr_us.txt from your Everquest directory to ./data if you want titles to display
-4. Copy spells_us.txt from your Everquest direction to ./data if you want spell names to display
-5. Execute: py aainfo.py [path to pcap file]
+Additional Requirements to use included capture script
+1. install npcap
+
+Parse AA Data Instructions:
+1. Start capturing UDP network data to a PCAP file using tools such as Wireshark, tcpdump or the provided capture.py script
+2. Login to Test server and reset/rebuy your AAs while the capture is running
+3. Stop the capture once all AAs have been bought
+4. Copy dbstr_us.txt and spells_us.txt from your Everquest directory to ./data
+5. Execute: py parse.py [path to pcap file]
 6. Data is written to aainfo.txt in the current directory
+
+Using Network Capture Script:
+1. If you wish to do the capture on your Window PC simply run: py capture.py [path to output file]
+2. Hit Ctrl+C to stop the capture
