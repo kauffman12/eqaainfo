@@ -9,7 +9,7 @@ Additional Requirements to use included capture script
 1. Install npcap from https://nmap.org/npcap/
 
 Parse AA Data Instructions:
-1. Start capturing UDP network data to a PCAP file using tools such as Wireshark, tcpdump or the provided capture.py script
+1. Start capturing UDP network data to a PCAP file using Wireshark, tcpdump or the provided capture.py script
 2. Login to Test server and reset/rebuy your AAs while the capture is running
 3. Stop the capture once all AAs have been bought
 4. Copy dbstr_us.txt and spells_us.txt from your Everquest directory to ./data
