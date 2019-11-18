@@ -24,3 +24,5 @@ Using Network Capture Script:
 Notes:
 
 The default output format is set to what is used by raidloot.com. If you change it to 'PRETTY' it'll be easier to read. Also, if you do capture new AAs which are not listed on raidloot.com then consider emailing a copy to them in their format so it's made available to everyone.
+
+The iteminfo.py and createdate.py scripts are not used for gathering AA data. One is for creating spell data for my log parser and the other was just for testing of parsing item data.
