@@ -13,9 +13,9 @@ Parse AA Data Instructions:
 2. Login to Test server and reset/rebuy your AAs while the capture is running
 3. Stop the capture once all AAs have been bought
 4. Copy dbstr_us.txt and spells_us.txt from your Everquest directory to ./data
-5. Execute: py parse.py [path to pcap file]
+5. Run the parse script (py parse.py [path to pcap file])
 6. Data is written to aainfo.txt in the current directory
 
 Using Network Capture Script:
-1. If you wish to do the capture on your Window PC simply run: py capture.py [path to output file]
+1. py capture.py [path to output file]
 2. Hit Ctrl+C to stop the capture
