@@ -2,11 +2,11 @@
 Parse EQ AA data from network capture
 
 Requirements:
-1. Python 3.6+
-2. pip install scapy
+1. Install Python 3.6+ https://www.python.org/downloads/windows/
+2. Run: pip install scapy
 
 Additional Requirements to use included capture script
-1. install npcap
+1. Install npcap from https://nmap.org/npcap/
 
 Parse AA Data Instructions:
 1. Start capturing UDP network data to a PCAP file using tools such as Wireshark, tcpdump or the provided capture.py script
