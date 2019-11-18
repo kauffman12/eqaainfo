@@ -3,7 +3,7 @@ Parse EQ AA data from network capture
 
 Requirements:
 1. Install Python 3.6+ https://www.python.org/downloads/windows/
-2. Run: pip install scapy
+2. Install Scapy module (py -m pip install scapy)
 
 Additional Requirements to use included capture script
 1. Install npcap from https://nmap.org/npcap/
