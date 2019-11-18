@@ -5,7 +5,7 @@ Requirements:
 1. Install Python 3.6+ https://www.python.org/downloads/windows/
 2. Install Scapy module (py -m pip install scapy)
 
-Additional Requirements to use included capture script
+Additional Requirements if using included capture script:
 1. Install npcap from https://nmap.org/npcap/
 
 Parse AA Data Instructions:
