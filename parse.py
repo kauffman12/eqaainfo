@@ -10,7 +10,7 @@ from lib.util import *
 from lib.eqdata import *
 from lib.eqreader import *
 
-AATableOpcode = 0x5d63 
+AATableOpcode = 0x4c25 
 OutputFile = 'aainfo.txt'
 
 OutputFormat = 'EQSPELLPARSER'
@@ -72,16 +72,16 @@ def eqSpellParserOutput(record):
   if (title == None):
     title = str(record.titleSID)
     if (len(DBTitleStrings) > 0):
-      print('AA Title not found in DB, possible problem parsing data (format change?)')  
+      print('Waring: AA Title not found in DB for ID %d' % record.titleSID)  
   
   AAData['%s-%02d' % (title, record.rank)] = '^'.join([str(x) for x in data]) + '\n'
             
 def prettyOutput(record):
   title = DBTitleStrings.get(record.titleSID) 
   if (title == None):
-    title = str(record.titleSID)
+    title = '%d - %d' % (record.titleSID, record.spellID)
     if (len(DBTitleStrings) > 0):
-      print('AA Title not found in DB, possible problem parsing data (format change?)')
+      print('Waring: AA Title not found in DB for ID %d' % record.titleSID)  
 
   output = io.StringIO()
   output.write('Ability:         %s (%d)\n' % (title, record.rank))
@@ -96,6 +96,7 @@ def prettyOutput(record):
   classString = getClassString(record.itemDBClassMask)
   output.write('Classes:         %s\n' % classString)
 
+  expansion = 'Unknown ID %d' % record.expansion
   if (record.expansion >= 0 and record.expansion < len(Expansions)):
     expansion = Expansions[record.expansion]
   output.write('Expansion:       %s\n' % expansion)
@@ -142,7 +143,7 @@ def prettyOutput(record):
     desc = record.descSID2 
   else:
     desc = '\n   ' + desc.replace('<br><br>', '\n   ').replace('<br>', '\n   ')
-  output.write('Description:    %s\n' % desc)
+  output.write('Description:     %s\n' % desc)
 
   output.write('\n')
   AAData['%s-%02d' % (title, record.rank)] = output.getvalue()
