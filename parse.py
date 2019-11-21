@@ -10,11 +10,11 @@ from lib.util import *
 from lib.eqdata import *
 from lib.eqreader import *
 
-AATableOpcode = 0x4c25 
+AATableOpcode = 0x3788 
 OutputFile = 'aainfo.txt'
 
-OutputFormat = 'EQSPELLPARSER'
-#OutputFormat = 'PRETTY'
+#OutputFormat = 'EQSPELLPARSER'
+OutputFormat = 'PRETTY'
 
 Categories = ['', '', 'Progression', '', '', 'Veteran Reward', 'Tradeskill', 'Expendable', 'Racial Innate', 'Everquest', '', 'Item Effect']
 Types = ['Unknown', 'General', 'Archetype', 'Class', 'Special', 'Focus']

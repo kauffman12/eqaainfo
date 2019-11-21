@@ -5,12 +5,14 @@ import msvcrt
 from os import path
 from scapy.all import *
 
+writer = 0
 def packet_callback(packet):
   if packet[UDP] and packet[UDP].payload:
-    #print(packet.summary())
     writer.write(packet)
 
 def main(args):
+  global writer
+
   if (len(args) < 2):
     print('Usage: ' + args[0] + ' <output filename>')
   else:
