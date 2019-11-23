@@ -13,8 +13,8 @@ from lib.eqreader import *
 AATableOpcode = 0x3788 
 OutputFile = 'aainfo.txt'
 
-#OutputFormat = 'EQSPELLPARSER'
-OutputFormat = 'PRETTY'
+OutputFormat = 'EQSPELLPARSER'
+#OutputFormat = 'PRETTY'
 
 Categories = ['', '', 'Progression', '', '', 'Veteran Reward', 'Tradeskill', 'Expendable', 'Racial Innate', 'Everquest', '', 'Item Effect']
 Types = ['Unknown', 'General', 'Archetype', 'Class', 'Special', 'Focus']
@@ -72,7 +72,7 @@ def eqSpellParserOutput(record):
   if (title == None):
     title = str(record.titleSID)
     if (len(DBTitleStrings) > 0):
-      print('Waring: AA Title not found in DB for ID %d' % record.titleSID)  
+      print('Warning: AA Title not found in DB for ID %d' % record.titleSID)  
   
   AAData['%s-%02d' % (title, record.rank)] = '^'.join([str(x) for x in data]) + '\n'
             
@@ -81,7 +81,7 @@ def prettyOutput(record):
   if (title == None):
     title = '%d - %d' % (record.titleSID, record.spellID)
     if (len(DBTitleStrings) > 0):
-      print('Waring: AA Title not found in DB for ID %d' % record.titleSID)  
+      print('Warning: AA Title not found in DB for ID %d' % record.titleSID)  
 
   output = io.StringIO()
   output.write('Ability:         %s (%d)\n' % (title, record.rank))
@@ -251,8 +251,8 @@ def handleEQPacket(opcode, bytes, timeStamp):
         print('Invalid OutputFormat specified')
         
     except TypeError as error:
-      #pass
-      print(error)
+      pass
+      #print(error)
 
 def saveAAData():
   file = open(OutputFile, 'w')
