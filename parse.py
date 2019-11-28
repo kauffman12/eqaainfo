@@ -3,6 +3,7 @@
 #
 
 import io
+import json
 import re
 import sys
 import datetime
@@ -15,6 +16,7 @@ OutputFile = 'aainfo.txt'
 
 OutputFormat = 'EQSPELLPARSER'
 #OutputFormat = 'PRETTY'
+#OutputFormat = 'EQCALC'
 
 Categories = ['', '', 'Progression', '', '', 'Veteran Reward', 'Tradeskill', 'Expendable', 'Racial Innate', 'Everquest', '', 'Item Effect']
 Types = ['Unknown', 'General', 'Archetype', 'Class', 'Special', 'Focus']
@@ -75,7 +77,30 @@ def eqSpellParserOutput(record):
       print('Warning: AA Title not found in DB for ID %d' % record.titleSID)  
   
   AAData['%s-%02d' % (title, record.rank)] = '^'.join([str(x) for x in data]) + '\n'
-            
+
+def eqCalcOutput(record):
+  title = DBTitleStrings.get(record.titleSID) 
+  if (title != None):
+    entry = dict()
+    entry['name'] = title
+    entry['id'] = record.aaID
+    entry['rank'] = record.rank
+
+    slotList = []
+    if (record.spaCount > 0):
+      while len(record.spaData) > 3:
+        slots = []
+        slots.append(record.spaData.pop(0))
+        slots.append(record.spaData.pop(0))
+        slots.append(record.spaData.pop(0))
+        slots.insert(0, record.spaData.pop(0))
+        slotList.append(slots)
+
+    if len(slotList) > 0:
+      entry['slotList'] = slotList
+
+    AAData['%s-%02d' % (title, record.rank)] = entry
+
 def prettyOutput(record):
   title = DBTitleStrings.get(record.titleSID) 
   if (title == None):
@@ -247,6 +272,8 @@ def handleEQPacket(opcode, bytes, timeStamp):
         eqSpellParserOutput(record)
       elif OutputFormat == 'PRETTY':
         prettyOutput(record)
+      elif OutputFormat == 'EQCALC':
+        eqCalcOutput(record)
       else:
         print('Invalid OutputFormat specified')
         
@@ -256,8 +283,13 @@ def handleEQPacket(opcode, bytes, timeStamp):
 
 def saveAAData():
   file = open(OutputFile, 'w')
-  for key in sorted(AAData.keys()):
-    file.write(AAData[key])
+
+  if OutputFormat != 'EQCALC':
+    for key in sorted(AAData.keys()):
+      file.write(AAData[key])
+  else:
+    json.dump(list(AAData.values()), file)
+
   file.close()
   print('Saved data for %d AAs to %s' % (len(AAData), OutputFile))
 
