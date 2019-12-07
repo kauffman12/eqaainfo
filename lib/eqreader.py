@@ -20,7 +20,7 @@ def uncompress(bytes, isSubPacket, removeEnd):
   elif (not isSubPacket and bytes[0] == 0xa5):
     uncompressed = bytes[1:]
     if (removeEnd):
-      uncompressed = bytes[:-2]
+      uncompressed = uncompressed[:-2]
   else:
     uncompressed = bytes[0:]
   return uncompressed
