@@ -11,7 +11,7 @@ from lib.util import *
 from lib.eqdata import *
 from lib.eqreader import *
 
-AATableOpcode = 0x3788 
+AATableOpcode = 0x733c
 OutputFile = 'aainfo.txt'
 
 OutputFormat = 'EQSPELLPARSER'
@@ -21,7 +21,7 @@ OutputFormat = 'EQSPELLPARSER'
 Categories = ['', '', 'Progression', '', '', 'Veteran Reward', 'Tradeskill', 'Expendable', 'Racial Innate', 'Everquest', '', 'Item Effect']
 Types = ['Unknown', 'General', 'Archetype', 'Class', 'Special', 'Focus']
 
-FOCUS_SPAS = [ 170, 212, 273, 294, 375, 124, 127, 128, 129, 132, 286, 296, 297, 302, 303, 374, 399, 413, 461, 462, 470, 483, 484, 507 ]
+FOCUS_SPAS = [ 170, 212, 273, 294, 339, 375, 124, 127, 128, 129, 132, 286, 296, 297, 302, 303, 340, 374, 389, 399, 413, 461, 462, 469, 470, 483, 484, 507 ]
 
 # Slot count + Slot 1/SPA info used to search for the AATableOpcode if it is unknown
 # Everyone has these and rank 1 seems to show up after a /resetAA
@@ -305,11 +305,13 @@ def saveAAData():
   print('Saved data for %d AAs to %s' % (len(AAData), OutputFile))
 
 def main(args):
-  global DBDescStrings, DBTitleStrings, DBSpells, AATableOpcode, AAData
+  global OutputFile, DBDescStrings, DBTitleStrings, DBSpells, AATableOpcode, AAData
 
   if (len(args) < 2):
-    print ('Usage: ' + args[0] + ' <pcap file>')
+    print ('Usage: ' + args[0] + ' <pcap file> [<output file>]')
   else:
+    if len(args) == 3:
+      OutputFile = args[2]
     try:
       DBDescStrings, DBTitleStrings = loadDBStrings()
       DBSpells = loadDBSpells()
