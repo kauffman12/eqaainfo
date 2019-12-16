@@ -12,11 +12,12 @@ Parse AA Data Instructions:
 1. Start capturing UDP network data to a PCAP file using Wireshark, tcpdump or the provided capture.py script
 2. Login to Test server and reset/rebuy your AAs while the capture is running
 3. Make sure to purchase Battle Ready, Packrat, and Innate Metabolism so the AA opcode can be found easily
-3. Stop the capture once all AAs have been bought
-4. Copy dbstr_us.txt and spells_us.txt from your Everquest directory to ./data
-5. Edit parse.py and change the output format as desired.
-6. Run the parse script (py parse.py [path to pcap file])
-7. Data is written to aainfo.txt in the current directory
+  -- the opcode search happens automatically during parsing
+4. Stop the capture once all AAs have been bought
+5. Copy dbstr_us.txt and spells_us.txt from your Everquest directory to ./data
+6. Edit parse.py and change the output format as desired.
+7. Run the parse script (py parse.py [path to pcap file])
+8. Data is written to aainfo.txt in the current directory
 
 Using Network Capture Script:
 1. py capture.py [path to output file]
