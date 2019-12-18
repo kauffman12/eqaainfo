@@ -56,7 +56,8 @@ def readItem(bytes):
   readBytes(bytes, 14)
   # price an item will be bought for at merchant
   updateSubItem(item, 'price', 'buy', readUInt32(bytes))
-  readBytes(bytes, 41)
+
+  readBytes(bytes, 43) # added 2 bytes since last time. evolving fields different?
 
   # items that can be converted show the name of the item they can be convereted to here
   convertToNameLen = readUInt32(bytes) # length to read
@@ -214,12 +215,13 @@ def readItem(bytes):
   item['placeable'] = readInt8(bytes) != 0
 
   # not always the end but we search for the next item
-  readBytes(bytes, 50)
+  readBytes(bytes, 60)
+  item['maxluckMaybe'] = bytes[22:23][0]
   return item
 
 # instead of relying on opcodes look for 16 character printable strings that seem to go along
 # with each item entry and try to parse them
-def handleEQPacket(opcode, bytes):
+def handleEQPacket(opcode, bytes, timeStamp):
   global ItemData
 
   list = []
