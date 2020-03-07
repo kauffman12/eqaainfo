@@ -3,9 +3,9 @@ import os.path
 DBSpellsFile = 'data/spells_us.txt'
 DBSpellsStrFile = 'data/spells_us_str.txt'
 RANK_LETTERS = [ 'X', 'V', 'I', 'L', 'C', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' ]
-IGNORE_LIST = [ 'Reserved', 'RESERVED', 'SKU', 'Type 3', 'Type3', 'BETA', 'Beta', 'Damage', 'N/A', 'NA ', 'TEST', 'PH', 'Placeholder' ]
+IGNORE_LIST = [ 'Reserved', 'RESERVED', 'SKU', 'Type 3', 'Type3', 'BETA', 'Beta', ' Damage ', 'ABTest', 'Test ', ' Test ', 'Test1', 'Test2', 'Test3', 'Test4', 'Test5', 'N/A', 'NA ', 'TEST', 'PH', 'Placeholder' ]
 NOT_PROC = [ 'Cacophony', 'Necromantic Curse', 'Shock of Magic', 'Fulmination', 'Resolution' ]
-IS_PROC = [ 'Allied Elemental Strike', 'Arcane Fusion', 'Bite of the Asp', 'Blood Pact Strike', 'Cryomancy', 'Decapitation', 'Envenomed Blades Strike', 'Gelid Claw', 'Infusion of Thunder Shock', 'Pyromancy', 'Second Spire of the Savage Lord Strike', 'Storm Blade Strike', 'Synergy Strike', 'Zan Fi\'s Echoes Strike' ]
+IS_PROC = [ 'Allied Elemental Strike', 'Arcane Fusion', 'Bite of the Asp', 'Blood Pact Strike', 'Cryomancy', 'Decapitation', 'Envenomed Blades Strike', 'Gelid Claw', 'Infusion of Thunder Shock', 'Pyromancy', 'Restless Strike', 'Second Spire of the Savage Lord Strike', 'Storm Blade Strike', 'Synergy Strike', 'Zan Fi\'s Echoes Strike' ]
 
 ALT_NAMES = dict()
 ALT_NAMES['Arms of Holy Wrath I Recourse'] = 'ArmsOfHolyWrathIRecourse'
@@ -83,6 +83,7 @@ if os.path.isfile(DBSpellsFile):
     maxDuration = int(data[12])
     beneficial = int(data[30])
     spellTarget = int(data[32])
+    maxHits = int(data[105])
     durationExtendable = int(data[125])
 
     proc = 0
@@ -108,12 +109,12 @@ if os.path.isfile(DBSpellsFile):
             damaging = 1
 
     if id in dbStrings:
-      entry = '%s^%s^%d^%d^%d^%d^%d^%d^%s^%s^%s^%s' % (id, name, minLevel, maxDuration, beneficial, durationExtendable, spellTarget, classMask, dbStrings[id]['landsOnYou'], dbStrings[id]['landsOnOther'], damaging, proc)
+      entry = '%s^%s^%d^%d^%d^%d^%d^%d^%d^%s^%s^%s^%s' % (id, name, minLevel, maxDuration, beneficial, durationExtendable, maxHits, spellTarget, classMask, dbStrings[id]['landsOnYou'], dbStrings[id]['landsOnOther'], damaging, proc)
       myDB.append(entry)
 
       if name in ALT_NAMES:
         name = ALT_NAMES[name]
-        entry = '%s^%s^%d^%d^%d^%d^%d^%d^%s^%s^%s^%s' % (id, name, minLevel, maxDuration, beneficial, durationExtendable, spellTarget, classMask, dbStrings[id]['landsOnYou'], dbStrings[id]['landsOnOther'], damaging, proc)
+        entry = '%s^%s^%d^%d^%d^%d^%d^%d^%d^%s^%s^%s^%s' % (id, name, minLevel, maxDuration, beneficial, durationExtendable, maxHits, spellTarget, classMask, dbStrings[id]['landsOnYou'], dbStrings[id]['landsOnOther'], damaging, proc)
         myDB.append(entry)
 
   output = open('output.txt', 'w')

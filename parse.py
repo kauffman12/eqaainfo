@@ -11,7 +11,7 @@ from lib.util import *
 from lib.eqdata import *
 from lib.eqreader import *
 
-AATableOpcode = 0x733c
+AATableOpcode = 0x5344
 OutputFile = 'aainfo.txt'
 
 OutputFormat = 'EQSPELLPARSER'
@@ -21,7 +21,7 @@ OutputFormat = 'EQSPELLPARSER'
 Categories = ['', '', 'Progression', '', '', 'Veteran Reward', 'Tradeskill', 'Expendable', 'Racial Innate', 'Everquest', '', 'Item Effect']
 Types = ['Unknown', 'General', 'Archetype', 'Class', 'Special', 'Focus']
 
-FOCUS_SPAS = [ 170, 212, 273, 294, 339, 375, 124, 127, 128, 129, 132, 286, 296, 297, 302, 303, 340, 374, 389, 399, 413, 461, 462, 469, 470, 483, 484, 507 ]
+FOCUS_SPAS = [ 170, 212, 260, 273, 294, 339, 375, 124, 127, 128, 129, 132, 286, 296, 297, 302, 303, 340, 374, 389, 399, 413, 461, 462, 469, 470, 483, 484, 507 ]
 
 # Slot count + Slot 1/SPA info used to search for the AATableOpcode if it is unknown
 # Everyone has these and rank 1 seems to show up after a /resetAA
@@ -268,7 +268,6 @@ def handleEQPacket(opcode, bytes, timeStamp):
       readBytes(bytes, 10) # unknown
       record.expansion = readUInt32(bytes)
       record.category = readInt32(bytes)
-      readBytes(bytes, 4) #unknown
       record.expansion2 = readUInt32(bytes) # required expansion? it's not always set
       record.maxActivationLevel = readUInt32(bytes) # max player level that can use the AA
       record.isGlyph = readInt8(bytes) == 1
@@ -287,7 +286,7 @@ def handleEQPacket(opcode, bytes, timeStamp):
         eqCalcOutput(record)
       else:
         print('Invalid OutputFormat specified')
-        
+
     except TypeError as error:
       pass
       #print(error)
