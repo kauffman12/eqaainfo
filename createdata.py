@@ -5,13 +5,21 @@ DBSpellsStrFile = 'data/spells_us_str.txt'
 
 RANK_LETTERS = [ 'X', 'V', 'I', 'L', 'C', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' ]
 
-IGNORE_LIST = [ 'Reserved', 'RESERVED', 'SKU', 'Type 3', 'Type3', 'BETA', 'Beta', ' Damage ', 'ABTest', 'Test ', ' Test ', 'Test1', 'Test2', 'Test3', 'Test4', 'Test5', 'N/A', 'NA ', 'TEST', 'PH', 'Placeholder' ]
+IGNORE_LIST = [ 'Reserved', 'RESERVED', 'Brittle Haste', 'SKU', 'Type 3', 'Type3', 'BETA', 'Beta', ' Damage ', 'ABTest', 'Test ', ' Test ', 'Test1', 'Test2', 'Test3', 'Test4', 'Test5', 'N/A', 'NA ', 'TEST', 'PH', 'Placeholder' ]
 
 NOT_PROC = [ 'Cacophony', 'Necromantic Curse', 'Shock of Magic', 'Fulmination', 'Resolution' ]
 
 IS_PROC = [ 'Allied Elemental Strike', 'Arcane Fusion', 'Bite of the Asp', 'Blood Pact Strike', 'Cryomancy', 'Decapitation', 'Envenomed Blades Strike', 'Gelid Claw', 'Infusion of Thunder Shock', 'Pyromancy', 'Restless Strike', 'Second Spire of the Savage Lord Strike', 'Storm Blade Strike', 'Synergy Strike', 'Zan Fi\'s Echoes Strike' ]
 
-ADPS_LIST = [ 2, 4, 5, 6, 11, 15, 118, 119, 124, 127, 169, 170, 171, 177, 182, 184, 185, 186, 189, 198, 200, 212, 216, 220, 227, 266, 273, 279, 280, 286, 294, 302, 303, 330, 339, 358, 364, 375, 383, 399, 413, 418, 427, 461, 462, 469, 471, 482, 496, 501, 507 ]
+ADPS_CASTER_VALUE = 1
+ADPS_MELEE_VALUE = 2
+ADPS_ALL_VALUE = ADPS_CASTER_VALUE + ADPS_MELEE_VALUE
+
+ADPS_CASTER = [ 15, 118, 124, 127, 132, 170, 212, 273, 286, 294, 302, 303, 339, 351, 358, 374, 375, 383, 399, 413, 461, 462, 501, 507 ]
+
+ADPS_MELEE = [ 2, 4, 5, 6, 11, 118, 119, 169, 171, 176, 177, 182, 184, 185, 186, 189, 198, 200, 216, 220, 225, 227, 250, 252, 258, 266, 279, 280, 330, 339, 351, 364, 374, 383, 418, 427, 429, 433, 459, 471, 473, 482, 496, 498, 499 ]
+
+ADPS_LIST = ADPS_CASTER + ADPS_MELEE
 
 ADPS_B1_MIN = dict()
 ADPS_B1_MIN[11] = 100
@@ -169,6 +177,18 @@ def abbreviate(name):
         result = name[0:lastSpace]
   return result
 
+def getAdpsValue(current, spa):
+  if current == ADPS_ALL_VALUE:
+    return current
+  updated = 0
+  if spa in ADPS_CASTER:
+    updated = ADPS_CASTER_VALUE
+  if spa in ADPS_MELEE:
+    updated = updated + ADPS_MELEE_VALUE
+  if current > 0:
+    updated = updated | current 
+  return updated
+
 dbStrings = dict()
 if os.path.isfile(DBSpellsStrFile):
   print('Loading Spell Strings from %s' % DBSpellsStrFile)
@@ -206,6 +226,11 @@ if os.path.isfile(DBSpellsFile):
     maxHits = int(data[105])
     durationExtendable = int(data[125])
 
+    # apply 100% buff extension
+    if beneficial != 0 and durationExtendable == 0 and combatSkill != 1 and maxDuration > 1:
+      maxDuration = maxDuration * 2
+
+    # add focus AAs that extend duration
     idNumber = int(id)
     if idNumber in ADPS_EXT_DUR:
       maxDuration = maxDuration + ADPS_EXT_DUR[idNumber]
@@ -237,20 +262,20 @@ if os.path.isfile(DBSpellsFile):
         if spa in ADPS_LIST:
           if spa in ADPS_B1_MIN:
             if base1 >= ADPS_B1_MIN[spa]:
-              adps = 1
+              adps = getAdpsValue(adps, spa)
           elif spa in ADPS_B1_MAX:
             if base1 < ADPS_B1_MAX[spa]:
-              adps = 1
+              adps = getAdpsValue(adps, spa)
           elif base1 >= 0:
-            adps = 1
+            adps = getAdpsValue(adps, spa)
 
     if id in dbStrings:
-      entry = '%s^%s^%d^%d^%d^%d^%d^%d^%d^%s^%s^%d^%d^%d^%d' % (id, name, minLevel, maxDuration, beneficial, durationExtendable, maxHits, spellTarget, classMask, dbStrings[id]['landsOnYou'], dbStrings[id]['landsOnOther'], damaging, proc, combatSkill, adps)
+      entry = '%s^%s^%d^%d^%d^%d^%d^%d^%s^%s^%d^%d^%d^%d' % (id, name, minLevel, maxDuration, beneficial, maxHits, spellTarget, classMask, dbStrings[id]['landsOnYou'], dbStrings[id]['landsOnOther'], damaging, proc, combatSkill, adps)
       myDB.append(entry)
 
       if name in ALT_NAMES:
         name = ALT_NAMES[name]
-        entry = '%s^%s^%d^%d^%d^%d^%d^%d^%d^%s^%s^%d^%d^%d^%d' % (id, name, minLevel, maxDuration, beneficial, durationExtendable, maxHits, spellTarget, classMask, dbStrings[id]['landsOnYou'], dbStrings[id]['landsOnOther'], damaging, proc, combatSkill, adps)
+        entry = '%s^%s^%d^%d^%d^%d^%d^%d^%s^%s^%d^%d^%d^%d' % (id, name, minLevel, maxDuration, beneficial, maxHits, spellTarget, classMask, dbStrings[id]['landsOnYou'], dbStrings[id]['landsOnOther'], damaging, proc, combatSkill, adps)
         myDB.append(entry)
 
   output = open('output.txt', 'w')
