@@ -5,7 +5,7 @@ DBSpellsStrFile = 'data/spells_us_str.txt'
 
 RANK_LETTERS = [ 'X', 'V', 'I', 'L', 'C', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' ]
 
-IGNORE_LIST = [ 'Reserved', 'RESERVED', 'Brittle Haste', 'SKU', 'Type 3', 'Type3', 'BETA', 'Beta', ' Damage ', 'ABTest', 'Test ', ' Test ', 'Test1', 'Test2', 'Test3', 'Test4', 'Test5', 'N/A', 'NA ', 'TEST', 'PH', 'Placeholder' ]
+IGNORE_LIST = [ 'MRC -', 'Reserved', 'RESERVED', 'Brittle Haste', 'SKU', 'Type 3', 'Type3', 'BETA', 'Beta', ' Damage ', 'ABTest', 'Test ', ' Test ', 'Test1', 'Test2', 'Test3', 'Test4', 'Test5', 'N/A', 'NA ', 'TEST', 'PH', 'Placeholder' ]
 
 NOT_PROC = [ 'Cacophony', 'Necromantic Curse', 'Shock of Magic', 'Fulmination', 'Resolution' ]
 
@@ -219,6 +219,7 @@ if os.path.isfile(DBSpellsFile):
     if skip:
       continue
 
+    abbrv = abbreviate(name)
     maxDuration = int(data[12])
     beneficial = int(data[30])
     spellTarget = int(data[32])
@@ -270,19 +271,19 @@ if os.path.isfile(DBSpellsFile):
             adps = getAdpsValue(adps, spa)
 
     if id in dbStrings:
-      entry = '%s^%s^%d^%d^%d^%d^%d^%d^%s^%s^%d^%d^%d^%d' % (id, name, minLevel, maxDuration, beneficial, maxHits, spellTarget, classMask, dbStrings[id]['landsOnYou'], dbStrings[id]['landsOnOther'], damaging, proc, combatSkill, adps)
-      myDB.append(entry)
+      spellData = '%s^%s^%d^%d^%d^%d^%d^%d^%s^%s^%d^%d^%d^%d' % (id, name, minLevel, maxDuration, beneficial, maxHits, spellTarget, classMask, dbStrings[id]['landsOnYou'], dbStrings[id]['landsOnOther'], damaging, proc, combatSkill, adps)
+      myDB.append(spellData)
 
       if name in ALT_NAMES:
         name = ALT_NAMES[name]
-        entry = '%s^%s^%d^%d^%d^%d^%d^%d^%s^%s^%d^%d^%d^%d' % (id, name, minLevel, maxDuration, beneficial, maxHits, spellTarget, classMask, dbStrings[id]['landsOnYou'], dbStrings[id]['landsOnOther'], damaging, proc, combatSkill, adps)
-        myDB.append(entry)
+        spellData = '%s^%s^%d^%d^%d^%d^%d^%d^%s^%s^%d^%d^%d^%d' % (id, name, minLevel, maxDuration, beneficial, maxHits, spellTarget, classMask, dbStrings[id]['landsOnYou'], dbStrings[id]['landsOnOther'], damaging, proc, combatSkill, adps)
+      myDB.append(spellData)
 
   output = open('output.txt', 'w')
 
   i = 0
-  for entry in myDB:
-    output.write('%s\n' % entry)
+  for spellData in myDB:
+    output.write('%s\n' % spellData)
     i += 1
 
 else:
