@@ -188,7 +188,8 @@ if os.path.isfile(DBSpellsStrFile):
       id = int(data[0])
       landOnYou = data[3]
       landOnOther = data[4]
-      dbStrings[id] = { 'landsOnYou': landOnYou, 'landsOnOther': landOnOther }
+      wearOff = data[5]
+      dbStrings[id] = { 'landsOnYou': landOnYou, 'landsOnOther': landOnOther, 'wearOff': wearOff }
     except ValueError:
       pass
 
@@ -254,7 +255,7 @@ if os.path.isfile(DBSpellsFile):
         if spa in BASE1_PROC_LIST:
           procDB[base1] = spa
         elif spa in BASE2_PROC_LIST:
-          if spa != 374 and spa != 340 or (manaCost == 0 and castTime == 0):
+          if (spa != 374 and spa != 340) or (manaCost == 0 and castTime == 0):
             if spa == 85:
               IS_NOT_PROC.append(abbrv) # there's a proc loop for things
             procDB[base2] = spa
@@ -274,10 +275,11 @@ if os.path.isfile(DBSpellsFile):
       continue
 
     if id in dbStrings:
-      spellData = '%s^%s^%d^%d^%d^%d^%d^%d^%s^%s^%d^%d^%d' % (id, name, minLevel, maxDuration, beneficial, maxHits, spellTarget, classMask, dbStrings[id]['landsOnYou'], dbStrings[id]['landsOnOther'], damaging, combatSkill, adps)
+      spellData = '%s^%s^%d^%d^%d^%d^%d^%d^%d^%d^%d^%s^%s^%s' % (id, name, minLevel, maxDuration, beneficial, maxHits, spellTarget, classMask, damaging, combatSkill, adps, dbStrings[id]['landsOnYou'], dbStrings[id]['landsOnOther'], dbStrings[id]['wearOff'])
       myDB[id] = dict()
       myDB[id]['abbrv'] = abbrv
       myDB[id]['spellData'] = spellData
+      myDB[id]['level'] = minLevel
 
   output = open('output.txt', 'w')
 
@@ -287,7 +289,8 @@ if os.path.isfile(DBSpellsFile):
 
     proc = 0
     if (spellId in procDB and not inNotProcList(spellInfo['abbrv'])) or inProcList(spellInfo['abbrv']):
-      proc = 1
+      if spellInfo['level'] > 250: # extra check for regular spells picked up
+        proc = 1
 
     spellData = '%s^%d' % (spellInfo['spellData'], proc)
     output.write('%s\n' % spellData)
