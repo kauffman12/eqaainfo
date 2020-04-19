@@ -221,6 +221,7 @@ if os.path.isfile(DBSpellsFile):
     manaCost = int(data[14])
     beneficial = int(data[30])
     spellTarget = int(data[32])
+    songWindow = int(data[87])
     combatSkill = int(data[101])
     maxHits = int(data[105])
     durationExtendable = int(data[125])
@@ -275,7 +276,7 @@ if os.path.isfile(DBSpellsFile):
       continue
 
     if id in dbStrings:
-      spellData = '%s^%s^%d^%d^%d^%d^%d^%d^%d^%d^%d^%s^%s^%s' % (id, name, minLevel, maxDuration, beneficial, maxHits, spellTarget, classMask, damaging, combatSkill, adps, dbStrings[id]['landsOnYou'], dbStrings[id]['landsOnOther'], dbStrings[id]['wearOff'])
+      spellData = '%s^%s^%d^%d^%d^%d^%d^%d^%d^%d^%d^%d^%s^%s^%s' % (id, name, minLevel, maxDuration, beneficial, maxHits, spellTarget, classMask, damaging, combatSkill, songWindow, adps, dbStrings[id]['landsOnYou'], dbStrings[id]['landsOnOther'], dbStrings[id]['wearOff'])
       myDB[id] = dict()
       myDB[id]['abbrv'] = abbrv
       myDB[id]['spellData'] = spellData
