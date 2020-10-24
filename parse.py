@@ -14,8 +14,8 @@ from lib.eqreader import *
 AATableOpcode = 0x5344
 OutputFile = 'aainfo.txt'
 
-OutputFormat = 'EQSPELLPARSER'
-#OutputFormat = 'PRETTY'
+#OutputFormat = 'EQSPELLPARSER'
+OutputFormat = 'PRETTY'
 #OutputFormat = 'EQCALC'
 
 Categories = ['', '', 'Progression', '', '', 'Veteran Reward', 'Tradeskill', 'Expendable', 'Racial Innate', 'Everquest', '', 'Item Effect']
@@ -137,8 +137,6 @@ def prettyOutput(record):
     expansion = Expansions[record.expansion]
   output.write('Expansion:       %s\n' % expansion)
 
-  if (record.maxActivationLevel > 0):
-    output.write('Max Level:       %d\n' % record.maxActivationLevel)
   output.write('Min Level:       %d\n' % record.reqLevel)
   output.write('Rank:            %d / %d\n' % (record.rank, record.maxRank))
   output.write('Rank Cost:       %d AAs\n' % record.cost)
