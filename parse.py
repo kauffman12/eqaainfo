@@ -70,7 +70,7 @@ def eqSpellParserOutput(record):
       data.append(','.join([str(x) + ',' + str(y) for x, y in zip(record.reqSkills, record.reqRanks)]))
   else:
       data.append('0,0') # just to match what the eqextractor dump was
-  data.append(datetime.fromtimestamp(record.timeStamp).isoformat()[0:10])
+  data.append(datetime.fromtimestamp(int(record.timeStamp)).isoformat()[0:10])
   
   title = DBTitleStrings.get(record.titleSID) 
   if (title == None):
@@ -207,8 +207,8 @@ def findAAOpcode(opcode, bytes):
           end += 1
  
 def handleEQPacket(opcode, bytes, timeStamp):
-  global AAData
- 
+  global AAData, AATableOpcode
+
   # handle search for opcode
   if (AATableOpcode == 0):
     findAAOpcode(opcode, bytes)
@@ -269,13 +269,14 @@ def handleEQPacket(opcode, bytes, timeStamp):
       record.expansion = readUInt32(bytes)
       record.category = readInt32(bytes)
       record.expansion2 = readUInt32(bytes) # required expansion? it's not always set
-      record.maxActivationLevel = readUInt32(bytes) # max player level that can use the AA
-      record.isGlyph = readInt8(bytes) == 1
+      readBytes(bytes, 9) # unknown
       record.spaCount = readUInt32(bytes)
       record.spaData = []
-      for _ in range(record.spaCount):
-        for _ in range(4):
-          record.spaData.append(readInt32(bytes))
+
+      if record.spaCount < 500:
+        for _ in range(record.spaCount):
+          for _ in range(4):
+            record.spaData.append(readInt32(bytes))
 
       # print
       if OutputFormat == 'EQSPELLPARSER':
