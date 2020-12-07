@@ -3,7 +3,9 @@ import os.path
 DBSpellsFile = 'data/spells_us.txt'
 DBSpellsStrFile = 'data/spells_us_str.txt'
 
-RANK_LETTERS = [ 'X', 'V', 'I', 'L', 'C', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' ]
+RANKS = [ '1', '2', '3', '4', '5', '6', '7', '8', '9', 'Third', 'Fifth', 'Octave' ]
+
+ROMAN = [ (400, 'CD'), (100, 'C'), (90, 'XC'), (50, 'L'), (40, 'XL'), (10, 'X'), (9, 'IX'), (5, 'V'), (4, 'IV'), (1, 'I') ]
 
 IGNORE_LIST = [ 'MRC -', 'Reserved', 'AB-Test-TAB', 'SumUNMm', 'RESERVED', 'Brittle Haste', 'SKU', 'Type 3', 'Type3', 'ShapeChange', 'BETA', 'Beta', 'ABTest', 'test ', 'Test ', ' Test ', ' test ', 'Test1', 'Test2', 'Test3', 'Test4', 'Test5', 'N/A', 'NA ', 'TEST', 'PH', 'Placeholder' ]
 
@@ -22,12 +24,8 @@ ADPS_CASTER = [ 15, 118, 124, 127, 132, 170, 212, 273, 286, 294, 302, 303, 339, 
 ADPS_MELEE = [ 2, 4, 5, 6, 11, 118, 119, 169, 171, 176, 177, 182, 184, 185, 186, 189, 198, 200, 216, 220, 225, 227, 250, 252, 258, 266, 279, 280, 330, 339, 351, 364, 374, 383, 418, 427, 429, 433, 459, 471, 473, 482, 496, 498, 499 ]
 
 ADPS_LIST = ADPS_CASTER + ADPS_MELEE
-
-ADPS_B1_MIN = dict()
-ADPS_B1_MIN[11] = 100
-
-ADPS_B1_MAX = dict()
-ADPS_B1_MAX[182] = 0
+ADPS_B1_MIN = [ (11, 100) ]
+ADPS_B1_MAX = [ (182, 0) ]
 
 ADPS_EXT_DUR = dict()
 # bard
@@ -157,12 +155,13 @@ def abbreviate(name):
     lastSpace = name.rfind(' ')
     if lastSpace > -1:
       hasRank = True
-      for i in range(lastSpace+1, len(name)):
-        if name[i] not in RANK_LETTERS:
-          hasRank = False
-          break
+      test = name[lastSpace+1:]
+      if test not in RANKS:
+        hasRank = False
       if hasRank:
         result = name[0:lastSpace]
+        if test in ['Octave', 'Fifth', 'Third']:
+          result = result + ' Root' 
   return result
 
 def getAdpsValue(current, spa):
@@ -176,6 +175,13 @@ def getAdpsValue(current, spa):
   if current > 0:
     updated = updated | current 
   return updated
+
+def intToRoman(number):
+  result = ""
+  for (arabic, roman) in ROMAN:
+    (factor, number) = divmod(number, arabic)
+    result += roman * factor
+  return result
 
 dbStrings = dict()
 if os.path.isfile(DBSpellsStrFile):
@@ -197,6 +203,9 @@ if os.path.isfile(DBSpellsFile):
   print('Loading Spells DB from %s' % DBSpellsFile)
   myDB = dict()
   procDB = dict()
+
+  for number in range(1, 200):
+    RANKS.append(intToRoman(number))
 
   for line in open(DBSpellsFile, 'r'):
     data = line.split('^')
@@ -220,6 +229,7 @@ if os.path.isfile(DBSpellsFile):
     maxDuration = int(data[12])
     manaCost = int(data[14])
     beneficial = int(data[30])
+    resist = int(data[31])
     spellTarget = int(data[32])
     songWindow = int(data[87])
     combatSkill = int(data[101])
@@ -276,7 +286,7 @@ if os.path.isfile(DBSpellsFile):
       continue
 
     if id in dbStrings:
-      spellData = '%s^%s^%d^%d^%d^%d^%d^%d^%d^%d^%d^%d^%s^%s^%s' % (id, name, minLevel, maxDuration, beneficial, maxHits, spellTarget, classMask, damaging, combatSkill, songWindow, adps, dbStrings[id]['landsOnYou'], dbStrings[id]['landsOnOther'], dbStrings[id]['wearOff'])
+      spellData = '%s^%s^%d^%d^%d^%d^%d^%d^%d^%d^%d^%d^%d^%s^%s^%s' % (id, name, minLevel, maxDuration, beneficial, maxHits, spellTarget, classMask, damaging, combatSkill, resist, songWindow, adps, dbStrings[id]['landsOnYou'], dbStrings[id]['landsOnOther'], dbStrings[id]['wearOff'])
       myDB[id] = dict()
       myDB[id]['abbrv'] = abbrv
       myDB[id]['spellData'] = spellData
