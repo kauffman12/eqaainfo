@@ -10,13 +10,13 @@ ROMAN = [ (400, 'CD'), (100, 'C'), (90, 'XC'), (50, 'L'), (40, 'XL'), (10, 'X'),
 IGNORE_LIST = [ 'MRC -', 'Reserved', 'AB-Test-TAB', 'SumUNMm', 'RESERVED', 'Brittle Haste', 'SKU', 'Type 3', 'Type3', 'ShapeChange', 'BETA', 'Beta', 'ABTest', 'test ', 'Test ', ' Test ', ' test ', 'Test1', 'Test2', 'Test3', 'Test4', 'Test5', 'N/A', 'NA ', 'TEST', 'PH', 'Placeholder' ]
 
 IS_NOT_PROC = [ 'Cloaked Blade', 'Twincast' ] # also appended to later
-IS_PROC = [ 'Arcane Fusion', 'Banestrike', 'Blessing of Life', 'Blessing of the Faithful', 'Bite of the Asp', 'Call of Fire Strike', 'Cascade of Decay Rot', 'Cascading Theft of Defense', 'Cascading Theft of Life', 'Color Shock Stun', 'Cryomancy', 'Decapitation', 'Distracting Strike', 'Divine Surge of Battle', 'Envenomed Blade', 'Eye Gouge', 'Feral Swipe', 'Fists of Fury', 'Flurry of Daggers', 'Frenzied Volley', 'Gelid Claw', 'Gorilla Smash', 'Gut Punch Strike', 'Healing Light', 'Heavy Arrow', 'Hunter\'s Fury', 'Infused by Rage', 'Nature\'s Reprieve', 'Languid Bite', 'Phalanx of Fury', 'Phantasmic Reflex', 'Recourse of Life', 'Sanctified Blessing', 'Uncontained Frenzy', 'Lethality', 'Massive Strike', 'Mortal Coil', 'Overdrive Punch', 'Presence of Fear', 'Pyromancy', 'Reluctant Lifeshare', 'Resonant Kick', 'Resonant Strike', 'Soul Flay', 'Strike of Ire', 'Strike Fury', 'Thunderfoot', 'Theft of Essence', 'Touch of the Cursed', ]
+IS_PROC = [ 'Arcane Fusion', 'Banestrike', 'Blessing of Life', 'Blessing of the Faithful', 'Bite of the Asp', 'Call of Fire Strike', 'Cascade of Decay Rot', 'Cascading Theft of Defense', 'Cascading Theft of Life', 'Color Shock Stun', 'Cryomancy', 'Decapitation', 'Distracting Strike', 'Divine Surge of Battle', 'Envenomed Blade', 'Eye Gouge', 'Feral Swipe', 'Fists of Fury', 'Flurry of Daggers', 'Frenzied Volley', 'Gelid Claw', 'Gorilla Smash', 'Gut Punch Strike', 'Healing Light', 'Heavy Arrow', 'Hunter\'s Fury', 'Infused by Rage', 'Nature\'s Reprieve', 'Languid Bite', 'Phalanx of Fury', 'Phantasmic Reflex', 'Recourse of Life', 'Sanctified Blessing', 'Uncontained Frenzy', 'Lethality', 'Massive Strike', 'Mortal Coil', 'Overdrive Punch', 'Presence of Fear', 'Pyromancy', 'Reluctant Lifeshare', 'Resonant Kick', 'Resonant Strike', 'Soul Flay', 'Strike of Ire', 'Strike Fury', 'Thunderfoot', 'Theft of Essence', 'Touch of the Cursed' ]
 
 ADPS_CASTER_VALUE = 1
 ADPS_MELEE_VALUE = 2
 ADPS_ALL_VALUE = ADPS_CASTER_VALUE + ADPS_MELEE_VALUE
 
-BASE1_PROC_LIST = [ 85, 419, 427, 429 ]
+BASE1_PROC_LIST = [ 85, 406, 419, 427, 429 ]
 BASE2_PROC_LIST = [ 339, 340, 374, 383, 481 ]
 
 ADPS_CASTER = [ 15, 118, 124, 127, 132, 170, 212, 273, 286, 294, 302, 303, 339, 351, 358, 374, 375, 383, 399, 413, 461, 462, 501, 507 ]
@@ -231,6 +231,7 @@ if os.path.isfile(DBSpellsFile):
     beneficial = int(data[30])
     resist = int(data[31])
     spellTarget = int(data[32])
+    skill = int(data[34])
     songWindow = int(data[87])
     combatSkill = int(data[101])
     maxHits = int(data[104])
@@ -267,11 +268,10 @@ if os.path.isfile(DBSpellsFile):
             bane = True
 
         if spa in BASE1_PROC_LIST:
-          procDB[base1] = spa
+          if (spa != 406 or (manaCost == 0 and castTime == 0)):
+            procDB[base1] = spa
         elif spa in BASE2_PROC_LIST:
           if (spa != 374 and spa != 340) or (manaCost == 0 and castTime == 0):
-            if spa == 85:
-              IS_NOT_PROC.append(abbrv) # there's a proc loop for things
             procDB[base2] = spa
         if spa in ADPS_LIST:
           if spa in ADPS_B1_MIN:
@@ -294,6 +294,7 @@ if os.path.isfile(DBSpellsFile):
       myDB[id]['abbrv'] = abbrv
       myDB[id]['spellData'] = spellData
       myDB[id]['level'] = minLevel
+      myDB[id]['skill'] = skill
       myDB[id]['bane'] = bane
 
   output = open('output.txt', 'w')
@@ -303,11 +304,14 @@ if os.path.isfile(DBSpellsFile):
     spellInfo = myDB[spellId]
 
     proc = 0
-    if (spellId in procDB and not inNotProcList(spellInfo['abbrv'])) or inProcList(spellInfo['abbrv']):
-      if spellInfo['level'] > 250: # extra check for regular spells picked up
-        proc = 1
-        if spellInfo['level'] == 255 and spellInfo['bane'] == True:
-          proc = 2
+    if spellInfo['bane'] == True:
+      proc = 2
+    elif (inProcList(spellInfo['abbrv'])):
+      proc = 1
+    elif (spellId in procDB and not inNotProcList(spellInfo['abbrv']) and spellInfo['level'] > 250): # extra check for regular spells picked up
+      proc = 1
+    elif spellInfo['level'] == 255 and spellInfo['skill'] == 52:
+      proc = 1
 
     spellData = '%s^%d' % (spellInfo['spellData'], proc)
     output.write('%s\n' % spellData)
