@@ -233,8 +233,8 @@ if os.path.isfile(DBSpellsFile):
     spellTarget = int(data[32])
     songWindow = int(data[87])
     combatSkill = int(data[101])
-    maxHits = int(data[105])
-    durationExtendable = int(data[125])
+    maxHits = int(data[104])
+    durationExtendable = int(data[124]) # focusable
 
     # apply 100% buff extension
     if beneficial != 0 and durationExtendable == 0 and combatSkill != 1 and maxDuration > 1:
@@ -254,6 +254,7 @@ if os.path.isfile(DBSpellsFile):
 
     adps = 0
     damaging = 0
+    bane = False
     for slot in data[-1].split('$'):
       values = slot.split('|')
       if len(values) > 1:
@@ -262,6 +263,8 @@ if os.path.isfile(DBSpellsFile):
         base2 = int(values[3])
         if beneficial == 0 and (spa == 0 or spa == 79):
           damaging = 1
+          if base1 <= -50000000:
+            bane = True
 
         if spa in BASE1_PROC_LIST:
           procDB[base1] = spa
@@ -291,6 +294,7 @@ if os.path.isfile(DBSpellsFile):
       myDB[id]['abbrv'] = abbrv
       myDB[id]['spellData'] = spellData
       myDB[id]['level'] = minLevel
+      myDB[id]['bane'] = bane
 
   output = open('output.txt', 'w')
 
@@ -302,6 +306,8 @@ if os.path.isfile(DBSpellsFile):
     if (spellId in procDB and not inNotProcList(spellInfo['abbrv'])) or inProcList(spellInfo['abbrv']):
       if spellInfo['level'] > 250: # extra check for regular spells picked up
         proc = 1
+        if spellInfo['level'] == 255 and spellInfo['bane'] == True:
+          proc = 2
 
     spellData = '%s^%d' % (spellInfo['spellData'], proc)
     output.write('%s\n' % spellData)
