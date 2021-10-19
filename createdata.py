@@ -10,7 +10,7 @@ ROMAN = [ (400, 'CD'), (100, 'C'), (90, 'XC'), (50, 'L'), (40, 'XL'), (10, 'X'),
 IGNORE_LIST = [ 'MRC -', 'AVCReserved', '- RESERVED', 'AB-Test-TAB', 'SumUNMm', 'Brittle Haste', 'SKU2', 'Type 3', 'Type3', 'ShapeChange', 'BETA', 'Beta', 'ABTest', ' Test', ' test ', 'Test1', 'Test2', 'Test3', 'Test4', 'Test5', 'N/A', 'NA ', 'TEST ', 'PH', 'Placeholder' ]
 
 IS_NOT_PROC = [ 'Cloaked Blade', 'Journeyman Boots', 'Twincast', 'Prophet\'s Gift of the Ruchu', 'Spirit of Vesagran' ] # also appended to later
-IS_PROC = [ 'Arcane Fusion', 'Antipathetic Strike', 'Banestrike', 'Blessing of Life', 'Blessing of the Faithful', 'Bite of the Asp', 'Call of Fire Strike', 'Cascade of Decay Rot', 'Cascading Theft of Defense', 'Cascading Theft of Life', 'Color Shock Stun', 'Cryomancy', 'Decapitation', 'Distracting Strike', 'Divine Surge of Battle', 'Envenomed Blade', 'Eye Gouge', 'Feral Swipe', 'Fists of Fury', 'Flurry of Daggers', 'Frenzied Volley', 'Gelid Claw', 'Gorilla Smash', 'Gut Punch Strike', 'Healing Light', 'Heavy Arrow', 'Hunter\'s Fury', 'Nature\'s Reprieve', 'Languid Bite', 'Phalanx of Fury', 'Phantasmic Reflex', 'Recourse of Life', 'Sanctified Blessing', 'Uncontained Frenzy', 'Lethality', 'Massive Strike', 'Mortal Coil', 'Overdrive Punch', 'Presence of Fear', 'Pyromancy', 'Reluctant Lifeshare', 'Resonant Kick', 'Resonant Strike', 'Soul Flay', 'Sincere Fury Strike', 'Spirit Strike', 'Steely Renewal', 'Strike of Ire', 'Strike Fury', 'Thunderfoot', 'Theft of Essence', 'Touch of the Cursed' ]
+IS_PROC = [ 'Arcane Fusion', 'Antipathetic Strike', 'Banestrike', 'Blessed Guardian Effect', 'Blessed Guardian Heal', 'Blessing of Life', 'Blessing of the Faithful', 'Bite of the Asp', 'Call of Fire Strike', 'Cascade of Decay Rot', 'Cascading Theft of Defense', 'Cascading Theft of Life', 'Color Shock Stun', 'Cryomancy', 'Decapitation', 'Distracting Strike', 'Divine Surge of Battle', 'Envenomed Blade', 'Eye Gouge', 'Feral Swipe', 'Fists of Fury', 'Flurry of Daggers', 'Frenzied Volley', 'Gelid Claw', 'Gorilla Smash', 'Gut Punch Strike', 'Healing Light', 'Heavy Arrow', 'Hunter\'s Fury', 'Nature\'s Reprieve', 'Languid Bite', 'Phalanx of Fury', 'Phantasmic Reflex', 'Recourse of Life', 'Sanctified Blessing', 'Uncontained Frenzy', 'Lethality', 'Massive Strike', 'Mortal Coil', 'Overdrive Punch', 'Presence of Fear', 'Pyromancy', 'Reluctant Lifeshare', 'Resonant Kick', 'Resonant Strike', 'Soul Flay', 'Sincere Fury Strike', 'Spirit Strike', 'Steely Renewal', 'Strike of Ire', 'Strike Fury', 'Thunderfoot', 'Theft of Essence', 'Touch of the Cursed' ]
 
 ADPS_CASTER_VALUE = 1
 ADPS_MELEE_VALUE = 2
@@ -330,6 +330,7 @@ if os.path.isfile(DBSpellsFile):
       continue
 
     abbrv = abbreviate(name)
+    spellRange = int(data[4])
     castTime = int(data[8])
     lockoutTime = int(data[9])
     recastTime = int(data[10])
@@ -343,6 +344,7 @@ if os.path.isfile(DBSpellsFile):
     combatSkill = int(data[100])
     maxHits = int(data[104])
     durationExtendable = int(data[124]) # focusable
+    rank = int(data[135]) # AA rank
 
     # apply 100% buff extension
     if beneficial != 0 and durationExtendable == 0 and combatSkill == 0 and maxDuration > 1:
@@ -373,8 +375,11 @@ if os.path.isfile(DBSpellsFile):
         spa = int(values[1])
         base1 = int(values[2])
         base2 = int(values[3])
-        if beneficial == 0 and (spa == 0 or spa == 79):
-          damaging = 1
+        if spa == 0 or spa == 79:
+          if base1 > 0:
+            damaging = -1
+          else:
+            damaging = 1
           if base1 <= -50000000:
             bane = True
 
@@ -398,6 +403,10 @@ if os.path.isfile(DBSpellsFile):
     # howerver allow their SPAs to be checked for procs so continue at the end
     if maxDuration == 1950 and castTime == 0 and lockoutTime == 0 and recastTime == 0 and beneficial != 0:
       continue
+
+    # filter out obvious abilities that cant be from a player
+    if rank == 0 and classMask == 0 and maxDuration < 1950 and adps > 0:
+      adps = 0
 
     if id in dbStrings:
       spellData = '%s^%s^%d^%d^%d^%d^%d^%d^%d^%d^%d^%d^%d^%s^%s^%s' % (id, name, minLevel, maxDuration, beneficial, maxHits, spellTarget, classMask, damaging, combatSkill, resist, songWindow, adps, dbStrings[id]['landsOnYou'], dbStrings[id]['landsOnOther'], dbStrings[id]['wearOff'])
