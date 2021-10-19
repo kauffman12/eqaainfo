@@ -36,6 +36,7 @@ def getDirection(srcIP, dstIP, srcPort, dstPort):
 
 def findAppPacket(callback, uncompressed, timeStamp):
   code = readUInt16(uncompressed)
+
   if (code == 0x1900):
     while (len(uncompressed) > 3):
       if (uncompressed[0] == 0xff):
