@@ -343,7 +343,9 @@ if os.path.isfile(DBSpellsFile):
     songWindow = int(data[86])
     combatSkill = int(data[100])
     maxHits = int(data[104])
+    dispellable = int(data[113])
     durationExtendable = int(data[124]) # focusable
+    blockable = int(data[132])
     rank = int(data[135]) # AA rank
 
     # apply 100% buff extension
@@ -405,11 +407,11 @@ if os.path.isfile(DBSpellsFile):
       continue
 
     # filter out obvious abilities that cant be from a player
-    if rank == 0 and classMask == 0 and maxDuration < 1950 and adps > 0:
+    if blockable != 0 and dispellable != 0 and rank == 0 and classMask == 0 and maxDuration < 1950 and adps > 0:
       adps = 0
 
     if id in dbStrings:
-      spellData = '%s^%s^%d^%d^%d^%d^%d^%d^%d^%d^%d^%d^%d^%s^%s^%s' % (id, name, minLevel, maxDuration, beneficial, maxHits, spellTarget, classMask, damaging, combatSkill, resist, songWindow, adps, dbStrings[id]['landsOnYou'], dbStrings[id]['landsOnOther'], dbStrings[id]['wearOff'])
+      spellData = '%s^%s^%d^%d^%d^%d^%d^%d^%d^%d^%d^%d^%d^%d^%s^%s^%s' % (id, name, minLevel, maxDuration, beneficial, maxHits, spellTarget, classMask, damaging, combatSkill, resist, songWindow, adps, rank, dbStrings[id]['landsOnYou'], dbStrings[id]['landsOnOther'], dbStrings[id]['wearOff'])
       myDB[id] = dict()
       myDB[id]['abbrv'] = abbrv
       myDB[id]['spellData'] = spellData
