@@ -1,6 +1,5 @@
 # requires windows version of python
 # use 'winpty' if running from gitbash
-# test
 
 import msvcrt
 from os import path
