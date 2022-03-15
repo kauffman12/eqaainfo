@@ -11,7 +11,8 @@ from lib.util import *
 from lib.eqdata import *
 from lib.eqreader import *
 
-AATableOpcode = 0x5344
+AATableOpcode = 0
+EQ64Bit = True
 OutputFile = 'aainfo.txt'
 
 #OutputFormat = 'EQSPELLPARSER'
@@ -23,8 +24,9 @@ Types = ['Unknown', 'General', 'Archetype', 'Class', 'Special', 'Focus']
 
 FOCUS_SPAS = [ 170, 212, 260, 273, 294, 339, 375, 124, 127, 128, 129, 132, 286, 296, 297, 302, 303, 340, 374, 389, 399, 413, 461, 462, 469, 470, 483, 484, 507 ]
 
-# Slot count + Slot 1/SPA info used to search for the AATableOpcode if it is unknown
+# Slot count, SPA, base1, base2, num info used to search for the AATableOpcode if it is unknown
 # Everyone has these and rank 1 seems to show up after a /resetAA
+# Added 64bit versions
 WellKnownAAList = [
   bytearray([1, 0, 0, 0, 107, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]),     # Battle Ready 1
   bytearray([1, 0, 0, 0, 107, 1, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]),     # Battle Ready 2
@@ -32,11 +34,22 @@ WellKnownAAList = [
   bytearray([1, 0, 0, 0, 107, 1, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]),     # Battle Ready 4
   bytearray([16, 0, 0, 0, 83, 1, 0, 0, 40, 0, 0, 0, 36, 147, 0, 0, 1, 0, 0, 0]), # Banestrike 1
   bytearray([1, 0, 0, 0, 246, 0, 0, 0, 110, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]),   # Innate Lung Capacity 1
-  bytearray([1, 0, 0, 0, 233, 0, 0, 0, 110, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]),   # Innate Metabolism 1
+  bytearray([1, 0, 0, 0, 233, 0, 0, 0, 110, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]),   # Innate Metabolism 1
   bytearray([1, 0, 0, 0, 233, 0, 0, 0, 125, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]),   # Innate Metabolism 2
   bytearray([1, 0, 0, 0, 233, 0, 0, 0, 150, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]),   # Innate Metabolism 3
   bytearray([1, 0, 0, 0, 221, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]),     # Packrat 1
-  bytearray([1, 0, 0, 0, 221, 0, 0, 0, 33, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0])     # Packrat 11
+  bytearray([1, 0, 0, 0, 221, 0, 0, 0, 33, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]),     # Packrat 11
+  bytearray([1, 0, 0, 0, 107, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]),     # Battle Ready 1
+  bytearray([1, 0, 0, 0, 107, 1, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]),     # Battle Ready 2
+  bytearray([1, 0, 0, 0, 107, 1, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]),     # Battle Ready 3
+  bytearray([1, 0, 0, 0, 107, 1, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]),     # Battle Ready 4
+  bytearray([16, 0, 0, 0, 83, 1, 0, 0, 40, 0, 0, 0, 0, 0, 0, 0, 36, 147, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]), # Banestrike 1
+  bytearray([1, 0, 0, 0, 246, 0, 0, 0, 110, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]),   # Innate Lung Capacity 1
+  bytearray([1, 0, 0, 0, 233, 0, 0, 0, 110, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]),   # Innate Metabolism 1
+  bytearray([1, 0, 0, 0, 233, 0, 0, 0, 125, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]),   # Innate Metabolism 2
+  bytearray([1, 0, 0, 0, 233, 0, 0, 0, 150, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]),   # Innate Metabolism 3
+  bytearray([1, 0, 0, 0, 221, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]),     # Packrat 1
+  bytearray([1, 0, 0, 0, 221, 0, 0, 0, 33, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0])     # Packrat 11  
 ]
 
 AAData = dict()
@@ -184,7 +197,7 @@ def prettyOutput(record):
   output.close()
 
 def findAAOpcode(opcode, bytes):
-  global AATableOpcode
+  global AATableOpcode, EQ64Bit
 
   # eliminate packets obviously too small for an AA
   count = 0
@@ -197,9 +210,11 @@ def findAAOpcode(opcode, bytes):
       while (not found and end <= size):
         if (bytes[start:end] == aa):
           count += 1
-          AATableOpcode = opcode
           if (count > 1):
+            AATableOpcode = opcode
+            EQ64Bit = (len(aa) == 28)
             found = True
+            print ('Found opcode: %s, EQ64Bit: %r' % (hex(AATableOpcode), EQ64Bit))
         else:
           start += 1
           end += 1
@@ -208,11 +223,11 @@ def handleEQPacket(opcode, bytes, timeStamp):
   global AAData, AATableOpcode
 
   # handle search for opcode
-  if (AATableOpcode == 0):
+  if AATableOpcode == 0:
     findAAOpcode(opcode, bytes)
 
   # save an AA if the opcode is correct
-  elif (AATableOpcode != 0 and opcode == AATableOpcode):
+  elif AATableOpcode != 0 and opcode == AATableOpcode:
     try:
       record = AARecord()
       record.timeStamp = timeStamp
@@ -253,7 +268,9 @@ def handleEQPacket(opcode, bytes, timeStamp):
 
       record.type = readUInt32(bytes)
       record.spellID = readInt32(bytes)
-      readUInt32(bytes) # always 1
+      test = readUInt32(bytes) # always 1 even with 64bit?
+      if test != 0x01:
+        print ('Problem reading spell ID, is it 64 bit now?')
       record.abilityTimer = readUInt32(bytes)
       record.refreshTime = readUInt32(bytes)
       record.classMask = readUInt16(bytes)
@@ -273,7 +290,15 @@ def handleEQPacket(opcode, bytes, timeStamp):
 
       if record.spaCount < 500:
         for _ in range(record.spaCount):
-          for _ in range(4):
+          if EQ64Bit:
+            record.spaData.append(readInt32(bytes))
+            record.spaData.append(readInt64(bytes))
+            record.spaData.append(readInt64(bytes))
+            record.spaData.append(readInt32(bytes))
+          else:
+            record.spaData.append(readInt32(bytes))
+            record.spaData.append(readInt32(bytes))
+            record.spaData.append(readInt32(bytes))
             record.spaData.append(readInt32(bytes))
 
       # print
@@ -315,8 +340,12 @@ def main(args):
       DBSpells = loadDBSpells()
 
       print('Reading %s' % args[1])
+      searchNeeded = (AATableOpcode == 0)
       readPcap(handleEQPacket, args[1])
       if (len(AAData) > 0):
+        # read 2nd time if search was used to get any missed AAs
+        if searchNeeded:
+          readPcap(handleEQPacket, args[1])
         saveAAData()
       else:
         print('No AAs found using opcode: %s, searching for updated opcode' % hex(AATableOpcode))

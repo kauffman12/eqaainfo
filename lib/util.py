@@ -54,6 +54,11 @@ def readInt32(buffer):
   del buffer[0:4]
   return int.from_bytes(value, 'little', signed=True)
 
+def readInt64(buffer):
+  value = buffer[0:8]
+  del buffer[0:8]
+  return int.from_bytes(value, 'little', signed=True)
+
 def readUInt8(buffer):
   value = buffer[0:1]
   del buffer[0:1]
