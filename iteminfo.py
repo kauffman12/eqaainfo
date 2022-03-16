@@ -92,9 +92,6 @@ def readItem(bytes):
   readUInt8(bytes) # no idea
   readUInt8(bytes) # no idea
   item['id'] = readInt32(bytes)
-  if item['name'] == 'Jeweled Skull of Null' or item['name'] == 'Soiled Bandages':
-    print (item['name'])
-    printBytes (bytes[0:20])
   item['weight'] = readInt32(bytes) / 10
   item['temporary'] = readUInt8(bytes) == 0
   item['tradeable'] = readUInt8(bytes) > 0
@@ -226,8 +223,9 @@ def readItem(bytes):
   item['placeable'] = readInt8(bytes) != 0
 
   # not always the end but we search for the next item
-  readBytes(bytes, 60)
-  item['maxluckMaybe'] = bytes[22:23][0]
+  readBytes(bytes, 78)
+  item['minLuck'] = readInt32(bytes)
+  item['maxluckMaybe'] = readInt32(bytes)
   return item
 
 # instead of relying on opcodes look for 16 character printable strings that seem to go along
