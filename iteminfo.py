@@ -49,6 +49,7 @@ def readItemEffect(bytes):
 
 def readItem(bytes):
   item = dict()
+  test = False
 
   readString(bytes, 16) # 16 character string
   item['quantity'] = readUInt8(bytes)
@@ -57,15 +58,16 @@ def readItem(bytes):
   # price an item will be bought for at merchant
   updateSubItem(item, 'price', 'buy', readUInt32(bytes))
 
-  readBytes(bytes, 43) # added 2 bytes since last time. evolving fields different?
+  readBytes(bytes, 40) # added 2 bytes since last time. evolving fields different?
 
   # items that can be converted show the name of the item they can be convereted to here
   convertToNameLen = readUInt32(bytes) # length to read
   if convertToNameLen > 0:
     item['convertToName'] = readString(bytes, convertToNameLen)
-  updateItem(item, 'convertToID', readInt32(bytes), lambda x: x > 0)
+    test = True
+  updateItem(item, 'convertToID', readInt64(bytes), lambda x: x > 0)
 
-  readUInt32(bytes) # unknown
+  #readUInt32(bytes) # unknown
 
   # if evolving item? seems to lineup but values vary. works for trophy, skull of null, etc
   item['evolving'] = readUInt8(bytes)
@@ -77,13 +79,18 @@ def readItem(bytes):
     item['evolvedLevelMax'] = readUInt8(bytes)
     readBytes(bytes, 7)
 
-  readBytes(bytes, 27)
+  readBytes(bytes, 33)
   item['itemClass'] = readUInt8(bytes) # 2 book, container, 0 general
   item['name'] = readString(bytes)
   item['description'] = readString(bytes)
   item['itemFile'] = readString(bytes)
   updateItem(item, 'itemFile2', readString(bytes), lambda x: x)
   item['id'] = readInt32(bytes)
+  readUInt8(bytes) # no idea
+  readUInt8(bytes) # no idea
+  readUInt8(bytes) # no idea
+  readUInt8(bytes) # no idea
+  readUInt8(bytes) # no idea
   item['weight'] = readInt32(bytes) / 10
   item['temporary'] = readUInt8(bytes) == 0
   item['tradeable'] = readUInt8(bytes) > 0
@@ -194,7 +201,7 @@ def readItem(bytes):
   readBytes(bytes, 22) # unknown
 
   # effects/clickie/focus
-  for ecount in range(9):
+  for ecount in range(7):
     updateSubList(item, 'effects', readItemEffect(bytes), lambda x: x['spellID'] > -1)
 
   readBytes(bytes, 9) # unknown
@@ -242,7 +249,8 @@ def handleEQPacket(opcode, bytes, timeStamp):
     if strSearch == 16:
       try:
         item = readItem(bytes)
-        if item['name'] and item['name'].isprintable() and item['itemFile'] and item['itemFile'].startswith('IT') and sum(item['augSlots']) < 150:
+        #if item['name'] and item['name'].isprintable() and item['itemFile'] and item['itemFile'].startswith('IT') and sum(item['augSlots']) < 150:
+        if item['name'] and item['name'].isprintable() and item['itemFile'] == '?' and sum(item['augSlots']) < 150:
           list.append(item)
       except:
         pass
