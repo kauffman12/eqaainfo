@@ -82,15 +82,19 @@ def readItem(bytes):
   readBytes(bytes, 33)
   item['itemClass'] = readUInt8(bytes) # 2 book, container, 0 general
   item['name'] = readString(bytes)
-  item['description'] = readString(bytes)
-  item['itemFile'] = readString(bytes)
-  updateItem(item, 'itemFile2', readString(bytes), lambda x: x)
+  item['lore'] = readString(bytes)
+  readUInt8(bytes) # used to be itemFile
+  readUInt8(bytes) # used to be itemFile
+  readUInt8(bytes) # used to be itemFile2
+  readUInt8(bytes) # no idea
+  readUInt8(bytes) # no idea
+  readUInt8(bytes) # no idea
+  readUInt8(bytes) # no idea
+  readUInt8(bytes) # no idea
   item['id'] = readInt32(bytes)
-  readUInt8(bytes) # no idea
-  readUInt8(bytes) # no idea
-  readUInt8(bytes) # no idea
-  readUInt8(bytes) # no idea
-  readUInt8(bytes) # no idea
+  if item['name'] == 'Jeweled Skull of Null' or item['name'] == 'Soiled Bandages':
+    print (item['name'])
+    printBytes (bytes[0:20])
   item['weight'] = readInt32(bytes) / 10
   item['temporary'] = readUInt8(bytes) == 0
   item['tradeable'] = readUInt8(bytes) > 0
@@ -189,7 +193,7 @@ def readItem(bytes):
 
   readBytes(bytes, 2) # unknown
   updateItem(item, 'bookContentsFile', readString(bytes), lambda x: x)
-  item['lore'] = readInt32(bytes)
+  item['loreItem'] = readInt32(bytes)
   readBytes(bytes, 2) # unknown
   updateSubItem(item, 'price', 'tribute', readUInt32(bytes))
   readBytes(bytes, 1) # unknown
@@ -250,7 +254,7 @@ def handleEQPacket(opcode, bytes, timeStamp):
       try:
         item = readItem(bytes)
         #if item['name'] and item['name'].isprintable() and item['itemFile'] and item['itemFile'].startswith('IT') and sum(item['augSlots']) < 150:
-        if item['name'] and item['name'].isprintable() and item['itemFile'] == '?' and sum(item['augSlots']) < 150:
+        if item['name'] and item['name'].isprintable() and item['id'] > 0 and sum(item['augSlots']) < 150:
           list.append(item)
       except:
         pass
@@ -262,8 +266,14 @@ def handleEQPacket(opcode, bytes, timeStamp):
 def saveItemData():
   file = open(OutputFile, 'w')
   printer = pprint.PrettyPrinter(indent=2, stream=file)
-  for key in sorted([*ItemData]):
-    printer.pprint(ItemData[key])
+  bleh = None
+  try:
+    for key in sorted([*ItemData]):
+      bleh = key
+      printer.pprint(ItemData[key])
+  except:
+    print (ItemData[bleh])
+    pass
   file.close()
   print('Saved data for %d Items to %s' % (len(ItemData), OutputFile))
 

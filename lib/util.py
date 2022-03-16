@@ -77,13 +77,14 @@ def readUInt32(buffer):
 def readString(buffer, maxLength=0):
   result = None
   count = 0
-  while (count < len(buffer) and buffer[count] != 0 and buffer[count] >= 32 and buffer[count] <= 127 and (not maxLength or count < maxLength)):
+  while (count < len(buffer) and buffer[count] != 0 and (not maxLength or count < maxLength)):
     count += 1
   if count > 0:
     try:
       result = buffer[0:count].decode()
     except:
-      pass # something out of order
+      del buffer[0:count]
+      return '' # something out of order
 
   # delete null terminator if one was found
   # some strings in EQ dont have one for some reason
@@ -92,3 +93,6 @@ def readString(buffer, maxLength=0):
 
   del buffer[0:count]
   return result
+
+def printBytes(buffer):
+  print ([hex(i) for i in buffer])
