@@ -93,8 +93,8 @@ def readItem(bytes):
   readUInt8(bytes) # no idea
   item['id'] = readInt32(bytes)
   item['weight'] = readInt32(bytes) / 10
-  item['temporary'] = readUInt8(bytes) == 0
-  item['tradeable'] = readUInt8(bytes) > 0
+  item['norent'] = readUInt8(bytes) == 0
+  item['nodrop'] = readUInt8(bytes) == 0
   item['attunable'] = readUInt8(bytes) > 0
   item['size'] = readUInt8(bytes)
 
