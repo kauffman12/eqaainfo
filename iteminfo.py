@@ -132,7 +132,7 @@ def readItem(bytes):
   #if 'Air Powered Blade of Repulsion' in item['name']:
   #  readBytes(bytes, 449)
   readBytes(bytes, 20) # skip bane damage stuff for now
-  item['magic'] = readInt8(bytes) != 0
+  item['magicItem'] = readInt8(bytes) != 0
 
   # used if item is food or a drink
   item['consumable'] = readInt32(bytes) != 0
@@ -154,27 +154,34 @@ def readItem(bytes):
   updateItem(item, 'damage', readInt32(bytes), lambda x: x)
 
   item['color'] = readUInt32(bytes)
-  item['prestige'] = readUInt32(bytes) # flag but expansion related with EoK (24, 25, 26)
-  item['itemType'] = readInt8(bytes) # weapon/armor/inventory/book/etc
+  # flag but expansion related with EoK (24, 25, 26)
+  item['prestige'] = readUInt32(bytes) != 0
+  # weapon/armor/inventory/book/etc
+  item['itemType'] = readInt8(bytes)
 
-  item['materialType'] = readUInt32(bytes) # 0 = cloth, 1 = leather, 16 = plain robe, etc
+  # 0 = cloth, 1 = leather, 16 = plain robe, etc
+  item['materialType'] = readUInt32(bytes)
   readBytes(bytes, 8) # unknown
   readBytes(bytes, 4) # unknown
-  item['materialType2'] = readUInt32(bytes) # repeated material type?
-  readUInt32(bytes) # listed unknown value on lucy but it usually has a value thats shared by multiple items
+  # repeated material type?
+  item['materialType2'] = readUInt32(bytes)
+  # listed unknown value on lucy but usually has value shared by multiple items
+  readUInt32(bytes)
 
-  # damage modifier like 8 = backstab, 10 = base, 26 = flying kick, 30 = kick, 74 = frenzy
+  # damage mod 8 = backstab, 10 = base, 26 = flying kick, 30 = kick, 74 = frenzy
   for damageModifier in ['type', 'damage']:
     updateSubItem(item, 'damageModifier', damageModifier, readUInt32(bytes), lambda x: x)
 
   readUInt32(bytes) # more unknown
-  updateItem(item, 'charmFile', readString(bytes), lambda x: x) # Ex: PS-POS-CasterDPS
+  # Ex: PS-POS-CasterDPS
+  updateItem(item, 'charmFile', readString(bytes), lambda x: x)
 
   # aug types this item can be used with if it's an augment
   updateItem(item, 'augTypeMask', readUInt8(bytes), lambda x: x)
   readBytes(bytes, 3) # unknown
   readInt32(bytes) # some -1
-  updateItem(item, 'augRestrictions', readUInt8(bytes), lambda x: x) # 4 = 2h only, 3 = 1h only
+  # 4 = 2h only, 3 = 1h only
+  updateItem(item, 'augRestrictions', readUInt8(bytes), lambda x: x)
   readBytes(bytes, 3)
 
   # types of aug slots for the 6 possible
@@ -190,22 +197,24 @@ def readItem(bytes):
 
   readBytes(bytes, 2) # unknown
   updateItem(item, 'bookContentsFile', readString(bytes), lambda x: x)
-  item['loreItem'] = readInt32(bytes)
+  item['loreItem'] = readInt32(bytes) != 0
   readBytes(bytes, 2) # unknown
   updateSubItem(item, 'price', 'tribute', readUInt32(bytes))
   readBytes(bytes, 1) # unknown
   updateSubItem(item, 'mod2', 'attack', readInt32(bytes), lambda x: x)
-  readBytes(bytes, 12) # unknown
+  item['haste'] = readInt8(bytes)
+  readBytes(bytes, 11) # unknown
   readInt32(bytes) # some -1?
   readBytes(bytes, 6) # unknown
   item['maxStackSize'] = readUInt32(bytes)
   readBytes(bytes, 22) # unknown
 
   # effects/clickie/focus
-  for ecount in range(7):
+  # should be up to 6?
+  for ecount in range(6):
     updateSubList(item, 'effects', readItemEffect(bytes), lambda x: x['spellID'] > -1)
 
-  readBytes(bytes, 9) # unknown
+  readBytes(bytes, 44) # unknown
   item['purity'] = readUInt32(bytes)
   readBytes(bytes, 1)
   updateItem(item, 'backstabDmg', readUInt32(bytes), lambda x: x) # Ex Backstab Dmg 76
@@ -219,11 +228,12 @@ def readItem(bytes):
     updateSubItem(item, 'mod2', mod2, readInt32(bytes), lambda x: x)
 
   readBytes(bytes, 1) # Ex 2 = cure potion, 5 = latest celestial heal, 7 = spider's bite/dragon magic, 17 = fast mounts
-  readBytes(bytes, 9) # unknown
-  item['placeable'] = readInt8(bytes) != 0
+  readBytes(bytes, 10) # unknown
 
   # not always the end but we search for the next item
-  readBytes(bytes, 78)
+  readBytes(bytes, 34)
+  item['placeable'] = readInt8(bytes) != 0
+  readBytes(bytes, 43)
   item['minLuck'] = readInt32(bytes)
   item['maxluckMaybe'] = readInt32(bytes)
   return item
