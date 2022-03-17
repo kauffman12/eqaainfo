@@ -142,8 +142,8 @@ def readItem(bytes):
 
   # used if item is food or a drink
   item['consumable'] = readInt32(bytes) != 0
-  updateItem(item, 'reqLevel', readUInt32(bytes), lambda x: x > 0)
-  updateItem(item, 'recLevel', readUInt32(bytes), lambda x: x > 0)
+  updateItem(item, 'levelReq', readUInt32(bytes), lambda x: x > 0)
+  updateItem(item, 'levelRec', readUInt32(bytes), lambda x: x > 0)
 
   readBytes(bytes, 12) # req skill? bard checks
   updateItem(item, 'lightValue', readInt8(bytes), lambda x: x != 0)
@@ -230,7 +230,9 @@ def readItem(bytes):
   for ecount in range(6):
     updateSubList(item, 'effects', readItemEffect(bytes), lambda x: x['spellID'] > -1)
 
-  readBytes(bytes, 44) # unknown
+  readBytes(bytes, 39) # unknown
+  updateSubList2(item, 'header', 'quest', readInt8(bytes), lambda x: x == 1)
+  readBytes(bytes, 4) # unknown
   updateItem(item, 'purity', readUInt32(bytes), lambda x: x != 0)
   readBytes(bytes, 1)
   updateItem(item, 'backstabDmg', readUInt32(bytes), lambda x: x) # Ex Backstab Dmg 76
