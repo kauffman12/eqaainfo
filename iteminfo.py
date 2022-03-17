@@ -32,6 +32,12 @@ def updateSubList(item, key, value, rule=None):
       item[key] = []
     item[key].append(value)
 
+def updateSubList2(item, key, display, value, rule=None):
+  if not rule or rule(value):
+    if not key in item:
+      item[key] = []
+    item[key].append(display)
+
 def readItemEffect(bytes):
   effect = dict()
   effect['spellID'] = readInt32(bytes)
@@ -44,7 +50,7 @@ def readItemEffect(bytes):
   effect['recastType'] = readInt32(bytes)
   effect['procMod'] = readUInt32(bytes)
   effect['name'] = readString(bytes)
-  effect['unknown'] = readInt32(bytes)
+  readInt32(bytes) # unknown
   return effect
 
 def readItem(bytes):
@@ -70,19 +76,19 @@ def readItem(bytes):
   #readUInt32(bytes) # unknown
 
   # if evolving item? seems to lineup but values vary. works for trophy, skull of null, etc
-  item['evolving'] = readUInt8(bytes)
-  if item['evolving']:
+  evolving = readUInt8(bytes)
+  if evolving:
     readInt32(bytes)# some id maybe
-    item['evolvedLevel'] = readUInt8(bytes)
+    updateSubItem(item, 'evolving', 'level', readUInt8(bytes))
     readBytes(bytes, 3)
     readBytes(bytes, 8) # somehow describes percent into current level and/or difficulty
-    item['evolvedLevelMax'] = readUInt8(bytes)
+    updateSubItem(item, 'evolving', 'maxLevel', readUInt8(bytes))
     readBytes(bytes, 7)
 
   readBytes(bytes, 33)
   item['itemClass'] = readUInt8(bytes) # 2 book, container, 0 general
   item['name'] = readString(bytes)
-  item['lore'] = readString(bytes)
+  item['loreText'] = readString(bytes)
   readUInt8(bytes) # used to be itemFile
   readUInt8(bytes) # used to be itemFile
   readUInt8(bytes) # used to be itemFile2
@@ -94,8 +100,8 @@ def readItem(bytes):
   item['id'] = readInt32(bytes)
   item['weight'] = readInt32(bytes) / 10
   item['norent'] = readUInt8(bytes) == 0
-  item['nodrop'] = readUInt8(bytes) == 0
-  item['attunable'] = readUInt8(bytes) > 0
+  updateSubList2(item, 'header', 'notrade', readUInt8(bytes), lambda x: x == 0)
+  updateSubList2(item, 'header', 'attunable', readUInt8(bytes), lambda x: x > 0)
   item['size'] = readUInt8(bytes)
 
   # bit mask of slots
@@ -122,7 +128,7 @@ def readItem(bytes):
     updateSubItem(item, 'mod2', mod2, readInt32(bytes), lambda x: x)
 
   item['classMask'] = readUInt32(bytes)
-  item['races'] = readUInt32(bytes)
+  item['raceMask'] = readUInt32(bytes)
   updateItem(item, 'deity', readUInt32(bytes), lambda x: x)
 
   # skill modifier
@@ -132,7 +138,7 @@ def readItem(bytes):
   #if 'Air Powered Blade of Repulsion' in item['name']:
   #  readBytes(bytes, 449)
   readBytes(bytes, 20) # skip bane damage stuff for now
-  item['magicItem'] = readInt8(bytes) != 0
+  updateSubList2(item, 'header', 'magic', readUInt8(bytes), lambda x: x != 0)
 
   # used if item is food or a drink
   item['consumable'] = readInt32(bytes) != 0
@@ -140,7 +146,7 @@ def readItem(bytes):
   updateItem(item, 'recLevel', readUInt32(bytes), lambda x: x > 0)
 
   readBytes(bytes, 12) # req skill? bard checks
-  item['lightSource'] = readInt8(bytes)
+  updateItem(item, 'lightValue', readInt8(bytes), lambda x: x != 0)
 
   # some weapon stats
   updateItem(item, 'delay', readUInt8(bytes), lambda x: x)
@@ -153,11 +159,12 @@ def readItem(bytes):
   updateItem(item, 'range', readUInt8(bytes), lambda x: x)
   updateItem(item, 'damage', readInt32(bytes), lambda x: x)
 
-  item['color'] = readUInt32(bytes)
+  readUInt32(bytes) # color according to lucy
   # flag but expansion related with EoK (24, 25, 26)
-  item['prestige'] = readUInt32(bytes) != 0
+  updateSubList2(item, 'header', 'prestige', readUInt32(bytes), lambda x: x != 0)
   # weapon/armor/inventory/book/etc
   item['itemType'] = readInt8(bytes)
+  updateSubList2(item, 'header', 'augmentation', item['itemType'], lambda x: x == 54)
 
   # 0 = cloth, 1 = leather, 16 = plain robe, etc
   item['materialType'] = readUInt32(bytes)
@@ -173,11 +180,14 @@ def readItem(bytes):
     updateSubItem(item, 'damageModifier', damageModifier, readUInt32(bytes), lambda x: x)
 
   readUInt32(bytes) # more unknown
-  # Ex: PS-POS-CasterDPS
+
+  # Ex: PS-POS-CasterDPS, ITEMTransAug1HHTH
   updateItem(item, 'charmFile', readString(bytes), lambda x: x)
 
   # aug types this item can be used with if it's an augment
-  updateItem(item, 'augTypeMask', readUInt8(bytes), lambda x: x)
+  augTypeMask = readUInt8(bytes)
+  updateItem(item, 'augTypeMask', augTypeMask, lambda x: x)
+  updateSubList2(item, 'header', 'augmentation', augTypeMask, lambda x: x != 0)
   readBytes(bytes, 3) # unknown
   readInt32(bytes) # some -1
   # 4 = 2h only, 3 = 1h only
@@ -188,6 +198,9 @@ def readItem(bytes):
   for augSlots in range(6):
     updateSubList(item, 'augSlots', readUInt32(bytes))
     readBytes(bytes, 2)
+  # remove if no aug slots
+  if not any(item['augSlots']):
+    item.pop('augSlots')
 
   readBytes(bytes, 20) # unknown
 
@@ -197,13 +210,16 @@ def readItem(bytes):
 
   readBytes(bytes, 2) # unknown
   updateItem(item, 'bookContentsFile', readString(bytes), lambda x: x)
-  item['loreItem'] = readInt32(bytes) != 0
+  readBytes(bytes, 4) # unknown
   readBytes(bytes, 2) # unknown
   updateSubItem(item, 'price', 'tribute', readUInt32(bytes))
-  readBytes(bytes, 1) # unknown
+  readInt8(bytes) # unknown
   updateSubItem(item, 'mod2', 'attack', readInt32(bytes), lambda x: x)
-  item['haste'] = readInt8(bytes)
-  readBytes(bytes, 11) # unknown
+  updateItem(item, 'haste', readInt8(bytes), lambda x: x != 0)
+  readBytes(bytes, 3) # unknown
+  readBytes(bytes, 4) # tribute duplicate
+  updateItem(item, 'augmentDistLevel', readInt8(bytes), lambda x: x != 0)
+  readBytes(bytes, 3) # unknown
   readInt32(bytes) # some -1?
   readBytes(bytes, 6) # unknown
   item['maxStackSize'] = readUInt32(bytes)
@@ -215,7 +231,7 @@ def readItem(bytes):
     updateSubList(item, 'effects', readItemEffect(bytes), lambda x: x['spellID'] > -1)
 
   readBytes(bytes, 44) # unknown
-  item['purity'] = readUInt32(bytes)
+  updateItem(item, 'purity', readUInt32(bytes), lambda x: x != 0)
   readBytes(bytes, 1)
   updateItem(item, 'backstabDmg', readUInt32(bytes), lambda x: x) # Ex Backstab Dmg 76
 
@@ -228,14 +244,16 @@ def readItem(bytes):
     updateSubItem(item, 'mod2', mod2, readInt32(bytes), lambda x: x)
 
   readBytes(bytes, 1) # Ex 2 = cure potion, 5 = latest celestial heal, 7 = spider's bite/dragon magic, 17 = fast mounts
-  readBytes(bytes, 10) # unknown
+  readBytes(bytes, 8) # unknown
+  updateSubList2(item, 'header', 'heirloom', readInt8(bytes), lambda x: x == 1)
+  readBytes(bytes, 1) # unknown
 
   # not always the end but we search for the next item
   readBytes(bytes, 34)
-  item['placeable'] = readInt8(bytes) != 0
+  updateSubList2(item, 'header', 'placeable', readInt8(bytes), lambda x: x != 0)
   readBytes(bytes, 43)
-  item['minLuck'] = readInt32(bytes)
-  item['maxluckMaybe'] = readInt32(bytes)
+  updateItem(item, 'luckMin', readInt32(bytes), lambda x: x > 0)
+  updateItem(item, 'luckMax', readInt32(bytes), lambda x: x > 0)
   return item
 
 # instead of relying on opcodes look for 16 character printable strings that seem to go along
@@ -261,8 +279,7 @@ def handleEQPacket(opcode, bytes, timeStamp):
     if strSearch == 16:
       try:
         item = readItem(bytes)
-        #if item['name'] and item['name'].isprintable() and item['itemFile'] and item['itemFile'].startswith('IT') and sum(item['augSlots']) < 150:
-        if item['name'] and item['name'].isprintable() and item['id'] > 0 and sum(item['augSlots']) < 150:
+        if item['name'] and item['name'].isprintable() and item['id'] and item['raceMask'] <= 65535 and item['classMask'] <= 65535:
           list.append(item)
       except:
         pass
