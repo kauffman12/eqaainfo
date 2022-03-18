@@ -137,7 +137,7 @@ def readItem(bytes):
   #if 'Air Powered Blade of Repulsion' in item['name']:
   #  readBytes(bytes, 449)
   readBytes(bytes, 20) # skip bane damage stuff for now
-  updateSubList2(item, 'header', 'magic', readUInt8(bytes), lambda x: x != 0)
+  updateSubList2(item, 'header', 'magic', readUInt8(bytes), lambda x: x)
 
   # used if item is food or a drink
   updateItem(item, 'duration', readUInt8(bytes), lambda x: x > 0)
@@ -146,7 +146,7 @@ def readItem(bytes):
   updateItem(item, 'levelRec', readUInt32(bytes), lambda x: x > 0)
 
   readBytes(bytes, 12) # req skill? bard checks
-  updateItem(item, 'lightValue', readInt8(bytes), lambda x: x != 0)
+  updateItem(item, 'lightValue', readInt8(bytes), lambda x: x)
 
   # some weapon stats
   updateItem(item, 'delay', readUInt8(bytes), lambda x: x)
@@ -161,7 +161,7 @@ def readItem(bytes):
 
   readUInt32(bytes) # color according to lucy
   # flag but expansion related with EoK (24, 25, 26)
-  updateSubList2(item, 'header', 'prestige', readUInt32(bytes), lambda x: x != 0)
+  updateSubList2(item, 'header', 'prestige', readUInt32(bytes), lambda x: x)
   # weapon/armor/inventory/book/etc
   item['itemType'] = readInt8(bytes)
   updateSubList2(item, 'header', 'augmentation', item['itemType'], lambda x: x == 54)
@@ -215,10 +215,9 @@ def readItem(bytes):
   updateSubItem(item, 'price', 'tribute', readUInt32(bytes))
   readInt8(bytes) # unknown
   updateSubItem(item, 'mod2', 'attack', readInt32(bytes), lambda x: x)
-  updateItem(item, 'haste', readInt8(bytes), lambda x: x != 0)
-  readBytes(bytes, 3) # unknown
+  updateItem(item, 'haste', readInt32(bytes), lambda x: x)
   readBytes(bytes, 4) # tribute duplicate
-  updateItem(item, 'augmentDistLevel', readInt8(bytes), lambda x: x != 0)
+  updateItem(item, 'augmentDistLevel', readInt8(bytes), lambda x: x)
   readBytes(bytes, 3) # unknown
   readInt32(bytes) # some -1?
   readBytes(bytes, 6) # unknown
@@ -233,7 +232,7 @@ def readItem(bytes):
   readBytes(bytes, 39) # unknown
   updateSubList2(item, 'header', 'quest', readInt8(bytes), lambda x: x == 1)
   readBytes(bytes, 4) # unknown
-  updateItem(item, 'purity', readUInt32(bytes), lambda x: x != 0)
+  updateItem(item, 'purity', readUInt32(bytes), lambda x: x)
   readBytes(bytes, 1)
   updateItem(item, 'backstabDmg', readUInt32(bytes), lambda x: x) # Ex Backstab Dmg 76
 
@@ -251,7 +250,7 @@ def readItem(bytes):
   updateSubList2(item, 'header', 'heirloom', readInt8(bytes), lambda x: x == 1)
 
   readBytes(bytes, 5) # unknown
-  updateSubList2(item, 'header', 'placeable', readInt8(bytes), lambda x: x != 0)
+  updateSubList2(item, 'header', 'placeable', readInt8(bytes), lambda x: x)
 
   # not always the end but we search for the next item
   readBytes(bytes, 73)
