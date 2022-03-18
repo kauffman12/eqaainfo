@@ -138,7 +138,9 @@ def readItem(bytes):
   for skillMod in ['percent', 'max', 'skill']:
     updateSubItem(item, 'skillMod', skillMod, readInt32(bytes), lambda x: x > 0)
 
-  readBytes(bytes, 20) # skip bane damage stuff for now
+  # skip bane damage stuff for now
+  readBytes(bytes, 20)
+
   updateSubList2(item, 'header', 'magic', readUInt8(bytes), lambda x: x)
 
   # used if item is food or a drink
@@ -161,9 +163,12 @@ def readItem(bytes):
   updateItem(item, 'range', readUInt8(bytes), lambda x: x)
   updateItem(item, 'damage', readInt32(bytes), lambda x: x)
 
-  readUInt32(bytes) # color according to lucy
+  # color?
+  readUInt32(bytes)
+
   # flag but expansion related with EoK (24, 25, 26)
   updateSubList2(item, 'header', 'prestige', readUInt32(bytes), lambda x: x)
+
   # weapon/armor/inventory/book/etc
   item['itemType'] = readInt8(bytes)
   updateSubList2(item, 'header', 'augmentation', item['itemType'], lambda x: x == 54)
@@ -176,7 +181,8 @@ def readItem(bytes):
   readBytes(bytes, 12) # unknown
   # repeated material type?
   readBytes(bytes, 4)
-  # listed unknown value on lucy but usually has value shared by multiple items
+
+  # usually has values shared by multiple items
   readUInt32(bytes)
 
   # damage mod 8 = backstab, 10 = base, 26 = flying kick, 30 = kick, 74 = frenzy
@@ -205,7 +211,7 @@ def readItem(bytes):
   if not any(item['augSlots']):
     item.pop('augSlots')
 
-  # unknown
+  # unknown except bytes[12] is 70 for TBL gear and newer?
   readBytes(bytes, 20)
 
   # container details
@@ -217,26 +223,43 @@ def readItem(bytes):
   updateItem(item, 'bookType', readUInt8(bytes), lambda x: x)
   updateItem(item, 'bookFile', readString(bytes), lambda x: x)
 
+  # possibly item lore
+  updateSubList2(item, 'header', 'lore', readInt32(bytes), lambda x: x)
+
   # unknown
-  readBytes(bytes, 6)
+  readBytes(bytes, 2)
 
   # vendor prices
   updateSubItem(item, 'price', 'tribute', readUInt32(bytes))
 
-  # unknwon
+  # not sure but lots of very different items have it set to 1
   readInt8(bytes)
 
   # mode modifiers
   for mods in [ 'attack', 'haste' ]:
     updateSubItem(item, 'mods', mods, readInt32(bytes), lambda x: x)
 
-  readBytes(bytes, 4) # tribute duplicate
-  updateItem(item, 'augmentDistLevel', readInt8(bytes), lambda x: x)
-  readBytes(bytes, 3) # unknown
-  readInt32(bytes) # some -1?
-  readBytes(bytes, 6) # unknown
+  # tribute duplicate
+  readBytes(bytes, 4)
+
+  updateItem(item, 'augDistiller', readInt8(bytes), lambda x: x)
+
+  # unknown
+  readBytes(bytes, 3)
+
+  # always -1?
+  readBytes(bytes, 4)
+
+  # always 0?
+  readBytes(bytes, 4)
+
+  # unknown but usually prizes
+  readBytes(bytes, 2)
+
   item['maxStackSize'] = readUInt32(bytes)
-  readBytes(bytes, 22) # unknown
+
+  # unknown
+  readBytes(bytes, 22)
 
   # effects/clickie/focus
   # should be up to 6?
@@ -259,12 +282,11 @@ def readItem(bytes):
     updateSubItem(item, 'mods', mods, readInt32(bytes), lambda x: x)
 
   readBytes(bytes, 1) # Ex 2 = cure potion, 5 = latest celestial heal, 7 = spider's bite/dragon magic, 17 = fast mounts
-  readBytes(bytes, 5) # unknown
-  readBytes(bytes, 3) # unknown
-  updateSubList2(item, 'header', 'heirloom', readInt8(bytes), lambda x: x == 1)
 
-  readBytes(bytes, 5) # unknown
+  readBytes(bytes, 8) # unknown
+  updateSubList2(item, 'header', 'heirloom', readInt8(bytes), lambda x: x == 1)
   updateSubList2(item, 'header', 'placeable', readInt8(bytes), lambda x: x)
+  readBytes(bytes, 5) # unknown
 
   # not always the end but we search for the next item
   readBytes(bytes, 73)
