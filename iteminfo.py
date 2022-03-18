@@ -32,6 +32,7 @@ def updateSubList(item, key, value, rule=None):
       item[key] = []
     item[key].append(value)
 
+# this list also has unique items
 def updateSubList2(item, key, display, value, rule=None):
   if not rule or rule(value):
     if not key in item:
@@ -41,21 +42,20 @@ def updateSubList2(item, key, display, value, rule=None):
 def readItemEffect(bytes):
   effect = dict()
   effect['spellID'] = readInt32(bytes)
-  effect['reqLevel'] = readUInt8(bytes)
+  updateItem(effect, 'levelReq', readUInt8(bytes), lambda x: x > 0)
   effect['type'] = readInt8(bytes)
-  effect['level'] = readInt32(bytes)
-  effect['charges'] = readInt32(bytes)
+  updateItem(effect, 'level', readUInt32(bytes), lambda x: x > 0)
+  updateItem(effect, 'charges', readUInt32(bytes), lambda x: x > 0)
   effect['castTime'] = readUInt32(bytes) # cast time not used for procs
   effect['recastDelay'] = readUInt32(bytes) # recast time not used for procs
   effect['recastType'] = readInt32(bytes)
   effect['procMod'] = readUInt32(bytes)
-  effect['name'] = readString(bytes)
+  updateItem(effect, 'text', readString(bytes), lambda x: x != None)
   readInt32(bytes) # unknown
   return effect
 
 def readItem(bytes):
   item = dict()
-  test = False
 
   readString(bytes, 16) # 16 character string
   item['quantity'] = readUInt8(bytes)
@@ -70,7 +70,6 @@ def readItem(bytes):
   convertToNameLen = readUInt32(bytes) # length to read
   if convertToNameLen > 0:
     item['convertToName'] = readString(bytes, convertToNameLen)
-    test = True
   updateItem(item, 'convertToID', readInt64(bytes), lambda x: x > 0)
 
   #readUInt32(bytes) # unknown
@@ -88,7 +87,7 @@ def readItem(bytes):
   readBytes(bytes, 33)
   item['itemClass'] = readUInt8(bytes) # 2 book, container, 0 general
   item['name'] = readString(bytes)
-  item['loreText'] = readString(bytes)
+  updateItem(item, 'text', readString(bytes), lambda x: x != None)
   readUInt8(bytes) # used to be itemFile
   readUInt8(bytes) # used to be itemFile
   readUInt8(bytes) # used to be itemFile2
@@ -141,7 +140,8 @@ def readItem(bytes):
   updateSubList2(item, 'header', 'magic', readUInt8(bytes), lambda x: x != 0)
 
   # used if item is food or a drink
-  item['consumable'] = readInt32(bytes) != 0
+  updateItem(item, 'duration', readUInt8(bytes), lambda x: x > 0)
+  readBytes(bytes, 3) # unknown or part of food time
   updateItem(item, 'levelReq', readUInt32(bytes), lambda x: x > 0)
   updateItem(item, 'levelRec', readUInt32(bytes), lambda x: x > 0)
 
@@ -167,11 +167,14 @@ def readItem(bytes):
   updateSubList2(item, 'header', 'augmentation', item['itemType'], lambda x: x == 54)
 
   # 0 = cloth, 1 = leather, 16 = plain robe, etc
-  item['materialType'] = readUInt32(bytes)
+  # parse for armor only
+  material = readUInt32(bytes)
+  if item['itemType'] == 10:
+    item['material'] = material
   readBytes(bytes, 8) # unknown
   readBytes(bytes, 4) # unknown
   # repeated material type?
-  item['materialType2'] = readUInt32(bytes)
+  readBytes(bytes, 4)
   # listed unknown value on lucy but usually has value shared by multiple items
   readUInt32(bytes)
 
@@ -184,10 +187,7 @@ def readItem(bytes):
   # Ex: PS-POS-CasterDPS, ITEMTransAug1HHTH
   updateItem(item, 'charmFile', readString(bytes), lambda x: x)
 
-  # aug types this item can be used with if it's an augment
-  augTypeMask = readUInt8(bytes)
-  updateItem(item, 'augTypeMask', augTypeMask, lambda x: x)
-  updateSubList2(item, 'header', 'augmentation', augTypeMask, lambda x: x != 0)
+  updateItem(item, 'augTypeMask', readUInt8(bytes), lambda x: x)
   readBytes(bytes, 3) # unknown
   readInt32(bytes) # some -1
   # 4 = 2h only, 3 = 1h only
@@ -246,14 +246,15 @@ def readItem(bytes):
     updateSubItem(item, 'mod2', mod2, readInt32(bytes), lambda x: x)
 
   readBytes(bytes, 1) # Ex 2 = cure potion, 5 = latest celestial heal, 7 = spider's bite/dragon magic, 17 = fast mounts
-  readBytes(bytes, 8) # unknown
+  readBytes(bytes, 5) # unknown
+  readBytes(bytes, 3) # unknown
   updateSubList2(item, 'header', 'heirloom', readInt8(bytes), lambda x: x == 1)
-  readBytes(bytes, 1) # unknown
+
+  readBytes(bytes, 5) # unknown
+  updateSubList2(item, 'header', 'placeable', readInt8(bytes), lambda x: x != 0)
 
   # not always the end but we search for the next item
-  readBytes(bytes, 34)
-  updateSubList2(item, 'header', 'placeable', readInt8(bytes), lambda x: x != 0)
-  readBytes(bytes, 43)
+  readBytes(bytes, 73)
   updateItem(item, 'luckMin', readInt32(bytes), lambda x: x > 0)
   updateItem(item, 'luckMax', readInt32(bytes), lambda x: x > 0)
   return item
