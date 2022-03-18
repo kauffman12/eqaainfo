@@ -91,16 +91,12 @@ def readItem(bytes):
   readUInt8(bytes) # used to be itemFile
   readUInt8(bytes) # used to be itemFile
   readUInt8(bytes) # used to be itemFile2
-  readUInt8(bytes) # no idea
-  readUInt8(bytes) # no idea
-  readUInt8(bytes) # no idea
-  readUInt8(bytes) # no idea
-  readUInt8(bytes) # no idea
+  readBytes(bytes, 5) # no idea
   item['id'] = readInt32(bytes)
   item['weight'] = readInt32(bytes) / 10
-  item['norent'] = readUInt8(bytes) == 0
-  updateSubList2(item, 'header', 'notrade', readUInt8(bytes), lambda x: x == 0)
-  updateSubList2(item, 'header', 'attunable', readUInt8(bytes), lambda x: x > 0)
+  updateSubList2(item, 'header', 'norent', readInt8(bytes), lambda x: x == 0)
+  updateSubList2(item, 'header', 'notrade', readInt8(bytes), lambda x: x == 0)
+  updateSubList2(item, 'header', 'attunable', readInt8(bytes), lambda x: x != 0)
   item['size'] = readUInt8(bytes)
 
   # bit mask of slots
@@ -122,31 +118,29 @@ def readItem(bytes):
   for stat in ['hp', 'mana', 'end', 'ac']:
     updateSubItem(item, 'stats', stat, readInt32(bytes), lambda x: x)
   
-  # mod2s
-  for mod2 in ['hpRegen', 'manaRegen', 'endRegen']:
-    updateSubItem(item, 'mod2', mod2, readInt32(bytes), lambda x: x)
+  # mod2
+  for mods in ['hpRegen', 'manaRegen', 'endRegen']:
+    updateSubItem(item, 'mods', mods, readInt32(bytes), lambda x: x)
 
   item['classMask'] = readUInt32(bytes)
   item['raceMask'] = readUInt32(bytes)
   updateItem(item, 'deity', readUInt32(bytes), lambda x: x)
 
   # skill modifier
-  for skillModifier in ['percent', 'max', 'skill']:
-    updateSubItem(item, 'skillModifier', skillModifier, readInt32(bytes), lambda x: x > 0)
+  for skillMod in ['percent', 'max', 'skill']:
+    updateSubItem(item, 'skillMod', skillMod, readInt32(bytes), lambda x: x > 0)
 
-  #if 'Air Powered Blade of Repulsion' in item['name']:
-  #  readBytes(bytes, 449)
   readBytes(bytes, 20) # skip bane damage stuff for now
   updateSubList2(item, 'header', 'magic', readUInt8(bytes), lambda x: x)
 
   # used if item is food or a drink
-  updateItem(item, 'duration', readUInt8(bytes), lambda x: x > 0)
-  readBytes(bytes, 3) # unknown or part of food time
+  updateItem(item, 'duration', readUInt32(bytes), lambda x: x > 0)
   updateItem(item, 'levelReq', readUInt32(bytes), lambda x: x > 0)
   updateItem(item, 'levelRec', readUInt32(bytes), lambda x: x > 0)
+  updateItem(item, 'skillReq', readUInt32(bytes), lambda x: x > 0)
 
-  readBytes(bytes, 12) # req skill? bard checks
-  updateItem(item, 'lightValue', readInt8(bytes), lambda x: x)
+  readBytes(bytes, 8) # bard checks?
+  updateItem(item, 'light', readInt8(bytes), lambda x: x)
 
   # some weapon stats
   updateItem(item, 'delay', readUInt8(bytes), lambda x: x)
@@ -171,51 +165,63 @@ def readItem(bytes):
   material = readUInt32(bytes)
   if item['itemType'] == 10:
     item['material'] = material
-  readBytes(bytes, 8) # unknown
-  readBytes(bytes, 4) # unknown
+  readBytes(bytes, 12) # unknown
   # repeated material type?
   readBytes(bytes, 4)
   # listed unknown value on lucy but usually has value shared by multiple items
   readUInt32(bytes)
 
   # damage mod 8 = backstab, 10 = base, 26 = flying kick, 30 = kick, 74 = frenzy
-  for damageModifier in ['type', 'damage']:
-    updateSubItem(item, 'damageModifier', damageModifier, readUInt32(bytes), lambda x: x)
+  for damageMod in ['type', 'damage']:
+    updateSubItem(item, 'damageMod', damageMod, readUInt32(bytes), lambda x: x)
 
-  readUInt32(bytes) # more unknown
+  # items with 'gains power by' text have data here
+  readUInt32(bytes) 
 
   # Ex: PS-POS-CasterDPS, ITEMTransAug1HHTH
   updateItem(item, 'charmFile', readString(bytes), lambda x: x)
 
-  updateItem(item, 'augTypeMask', readUInt8(bytes), lambda x: x)
-  readBytes(bytes, 3) # unknown
-  readInt32(bytes) # some -1
+  # type of aug 3, 4, 19, etc
+  updateItem(item, 'augTypeMask', readUInt32(bytes), lambda x: x)
+
+  # -1 for everything so far
+  readBytes(bytes, 4)
+
   # 4 = 2h only, 3 = 1h only
-  updateItem(item, 'augRestrictions', readUInt8(bytes), lambda x: x)
-  readBytes(bytes, 3)
+  updateItem(item, 'augRestrictions', readUInt32(bytes), lambda x: x)
 
   # types of aug slots for the 6 possible
   for augSlots in range(6):
     updateSubList(item, 'augSlots', readUInt32(bytes))
     readBytes(bytes, 2)
-  # remove if no aug slots
   if not any(item['augSlots']):
     item.pop('augSlots')
 
-  readBytes(bytes, 20) # unknown
+  # unknown
+  readBytes(bytes, 20)
 
   # container details
   for containerInfo in ['type', 'capacity', 'maxItems', 'weightReduction']:
     updateSubItem(item, 'container', containerInfo, readUInt8(bytes), lambda x: x)
 
-  readBytes(bytes, 2) # unknown
-  updateItem(item, 'bookContentsFile', readString(bytes), lambda x: x)
-  readBytes(bytes, 4) # unknown
-  readBytes(bytes, 2) # unknown
+  # 1 if book
+  readBytes(bytes, 1)
+  updateItem(item, 'bookType', readUInt8(bytes), lambda x: x)
+  updateItem(item, 'bookFile', readString(bytes), lambda x: x)
+
+  # unknown
+  readBytes(bytes, 6)
+
+  # vendor prices
   updateSubItem(item, 'price', 'tribute', readUInt32(bytes))
-  readInt8(bytes) # unknown
-  updateSubItem(item, 'mod2', 'attack', readInt32(bytes), lambda x: x)
-  updateItem(item, 'haste', readInt32(bytes), lambda x: x)
+
+  # unknwon
+  readInt8(bytes)
+
+  # mode modifiers
+  for mods in [ 'attack', 'haste' ]:
+    updateSubItem(item, 'mods', mods, readInt32(bytes), lambda x: x)
+
   readBytes(bytes, 4) # tribute duplicate
   updateItem(item, 'augmentDistLevel', readInt8(bytes), lambda x: x)
   readBytes(bytes, 3) # unknown
@@ -240,9 +246,9 @@ def readItem(bytes):
   for heroic in ['str', 'int', 'wis', 'agi', 'dex', 'sta', 'cha']:
     updateSubItem(item, 'heroics', heroic, readInt32(bytes), lambda x: x)
 
-  # more mod2 stats
-  for mod2 in ['healAmount', 'spellDmg', 'clairvoyance']:
-    updateSubItem(item, 'mod2', mod2, readInt32(bytes), lambda x: x)
+  # more mods stats
+  for mods in ['healAmount', 'spellDmg', 'clairvoyance']:
+    updateSubItem(item, 'mods', mods, readInt32(bytes), lambda x: x)
 
   readBytes(bytes, 1) # Ex 2 = cure potion, 5 = latest celestial heal, 7 = spider's bite/dragon magic, 17 = fast mounts
   readBytes(bytes, 5) # unknown
