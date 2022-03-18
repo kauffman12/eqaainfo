@@ -72,11 +72,8 @@ def readItem(bytes):
     item['convertToName'] = readString(bytes, convertToNameLen)
   updateItem(item, 'convertToID', readInt64(bytes), lambda x: x > 0)
 
-  #readUInt32(bytes) # unknown
-
-  # if evolving item? seems to lineup but values vary. works for trophy, skull of null, etc
-  evolving = readUInt8(bytes)
-  if evolving:
+  # evolving item? works for trophies/tbl gear and has to be skipped otherwise
+  if readUInt8(bytes):
     readInt32(bytes)# some id maybe
     updateSubItem(item, 'evolving', 'level', readUInt8(bytes))
     readBytes(bytes, 3)
@@ -84,14 +81,20 @@ def readItem(bytes):
     updateSubItem(item, 'evolving', 'maxLevel', readUInt8(bytes))
     readBytes(bytes, 7)
 
+  # unknown
   readBytes(bytes, 33)
+
   item['itemClass'] = readUInt8(bytes) # 2 book, container, 0 general
   item['name'] = readString(bytes)
+
+  # item lore
   updateItem(item, 'text', readString(bytes), lambda x: x != None)
-  readUInt8(bytes) # used to be itemFile
-  readUInt8(bytes) # used to be itemFile
-  readUInt8(bytes) # used to be itemFile2
+
+  # used to be itemFile stuff?
+  readBytes(bytes, 3)
   readBytes(bytes, 5) # no idea
+
+  # basic item info
   item['id'] = readInt32(bytes)
   item['weight'] = readInt32(bytes) / 10
   updateSubList2(item, 'header', 'norent', readInt8(bytes), lambda x: x == 0)
@@ -101,9 +104,13 @@ def readItem(bytes):
 
   # bit mask of slots
   item['slotMask'] = readUInt32(bytes)
+
   updateSubItem(item, 'price', 'sell', readUInt32(bytes))
   item['icon'] = readUInt32(bytes)
-  readBytes(bytes, 1) # dont know
+
+  # seems to be zero all the time
+  readBytes(bytes, 1)
+
   item['usedInTradeskills'] = readUInt8(bytes) > 0
 
   # resists
