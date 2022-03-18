@@ -44,8 +44,8 @@ def readItemEffect(bytes):
   effect['spellID'] = readInt32(bytes)
   updateItem(effect, 'levelReq', readUInt8(bytes), lambda x: x > 0)
   effect['type'] = readInt8(bytes)
-  updateItem(effect, 'level', readUInt32(bytes), lambda x: x > 0)
-  updateItem(effect, 'charges', readUInt32(bytes), lambda x: x > 0)
+  updateItem(effect, 'level', readInt32(bytes), lambda x: x > 0)
+  updateItem(effect, 'charges', readInt32(bytes), lambda x: x > 0)
   effect['castTime'] = readUInt32(bytes) # cast time not used for procs
   effect['recastDelay'] = readUInt32(bytes) # recast time not used for procs
   effect['recastType'] = readInt32(bytes)
@@ -122,6 +122,7 @@ def readItem(bytes):
   for mods in ['hpRegen', 'manaRegen', 'endRegen']:
     updateSubItem(item, 'mods', mods, readInt32(bytes), lambda x: x)
 
+  # class/race/diety restrictions
   item['classMask'] = readUInt32(bytes)
   item['raceMask'] = readUInt32(bytes)
   updateItem(item, 'deity', readUInt32(bytes), lambda x: x)
