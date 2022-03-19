@@ -90,7 +90,7 @@ def readString(buffer, maxLength=0):
 
     # delete null terminator if one was found
     # some strings in EQ dont have one for some reason
-    if buffer[count] == 0:
+    if count < len(buffer) and buffer[count] == 0:
       count += 1
 
     del buffer[0:count]

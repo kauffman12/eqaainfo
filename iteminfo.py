@@ -16,28 +16,9 @@ ItemData = dict()
 DBDescStrings = dict()
 DBTitleStrings = dict()
 DBSpells = dict()
-Sizes = [ 'tiny', 'small', 'medium', 'large', 'giant', 'giant' ]
-ItemClass = [ 'general', 'container', 'book' ]
-PlayerClasses = [ 'war', 'clr', 'pal', 'rng', 'shd', 'dru', 'mnk', 'brd', 'rog', 'shm', 'nec', 'wiz', 'mag', 'enc', 'bst', 'ber', 'mrc' ]
-PlayerRaces = [ 'hum', 'bar', 'eru', 'elf', 'hie', 'def', 'hef', 'dwf', 'trl', 'ogr', 'hfl', 'gnm', 'iks', 'vah', 'frg', 'drk', 'shroud' ]
 
 class ParseError (Exception):
   pass
-
-def getAugSlots(slotMask):
-  return [(n + 1) for n in range(32) if (slotMask & (1<<n))]
-
-def getPlayerClasses(classMask):
-  if classMask == 65535:
-    return ['all']
-  else:
-    return [PlayerClasses[n] for n in range(17) if (classMask & (1<<n))]
-
-def getPlayerRaces(raceMask):
-  if raceMask == 65535:
-    return ['all']
-  else:
-    return [PlayerRaces[n] for n in range(17) if (raceMask & (1<<n))]
 
 def updateItem(item, key, value, rule=None):
   if not rule or rule(value):
@@ -110,9 +91,7 @@ def readItem(bytes):
   # unknown
   readBytes(bytes, 33)
 
-  itemClass = readUInt8(bytes)
-  if itemClass < len(ItemClass):
-    updateSubItem(item, 'item', 'class', ItemClass[itemClass]) 
+  updateSubItem(item, 'item', 'class', readUInt8(bytes)) 
 
   item['name'] = readString(bytes)
   if not item['name'] or not item['name'].isprintable():
@@ -135,9 +114,7 @@ def readItem(bytes):
   updateSubList2(item, 'header', 'attunable', readInt8(bytes), lambda x: x != 0)
 
   # size
-  size = readUInt8(bytes)
-  if size < len(Sizes):
-    updateSubItem(item, 'item', 'size', Sizes[size])
+  updateSubItem(item, 'item', 'size', readUInt8(bytes))
 
   # bit mask of slots
   updateItem(item, 'fitsInvSlots', readUInt32(bytes), lambda x: x > 0)
@@ -167,15 +144,13 @@ def readItem(bytes):
     updateSubItem(item, 'mods', mods, readInt32(bytes), lambda x: x)
 
   # class/race/diety restrictions
-  playerClasses = readUInt32(bytes)
-  if playerClasses == 0 or playerClasses > 65535:
+  item['reqClasses'] = readUInt32(bytes)
+  if item['reqClasses'] == 0 or item['reqClasses'] > 65535:
     raise ParseError # parse error
-  item['reqClasses'] = getPlayerClasses(playerClasses)
 
-  playerRaces = readUInt32(bytes)
-  if playerRaces == 0 or playerRaces > 65535:
+  item['reqRaces'] = readUInt32(bytes)
+  if item['reqRaces'] == 0 or item['reqRaces'] > 65535:
     raise ParseError # parse error
-  item['reqRaces'] = getPlayerRaces(playerRaces)
 
   updateItem(item, 'deity', readUInt32(bytes), lambda x: x)
 
@@ -245,9 +220,7 @@ def readItem(bytes):
   updateItem(item, 'charmFile', readString(bytes), lambda x: x)
 
   # type of aug 3, 4, 19, etc
-  fitsAugSlots = readUInt32(bytes)
-  if fitsAugSlots > 0:
-    item['fitsAugSlots'] = getAugSlots(fitsAugSlots)
+  updateItem(item, 'fitsAugSlots', readUInt32(bytes), lambda x: x > 0)
 
   # -1 for everything so far
   readBytes(bytes, 4)
@@ -280,8 +253,9 @@ def readItem(bytes):
   # possibly item lore
   updateSubList2(item, 'header', 'lore', readInt32(bytes), lambda x: x)
 
-  # unknown
-  readBytes(bytes, 2)
+  # artifact/summoned
+  for header in ['artifact', 'summoned']:
+    updateSubList2(item, 'header', header, readInt8(bytes), lambda x: x == 1)
 
   # vendor prices
   updateSubItem(item, 'price', 'tribute', readUInt32(bytes))
@@ -341,10 +315,12 @@ def readItem(bytes):
   updateSubList2(item, 'header', 'heirloom', readInt8(bytes), lambda x: x == 1)
   updateSubList2(item, 'header', 'placeable', readInt8(bytes), lambda x: x)
 
-  # not always the end but we search for the next item
+  # not sure where items end so check if we've reached the beginning
+  # of a new one within the data still meant to be parsed
   readBytes(bytes, 78)
   updateSubItem(item, 'luck', 'min', readInt32(bytes), lambda x: x > 0)
   updateSubItem(item, 'luck', 'max', readInt32(bytes), lambda x: x > 0)
+  updateSubList2(item, 'header', 'loreEquiped', readInt8(bytes), lambda x: x)
   return item
 
 # instead of relying on opcodes look for 16 character printable strings that seem to go along
@@ -353,7 +329,7 @@ def handleEQPacket(opcode, bytes, timeStamp):
   global ItemData
 
   list = []
-  while len(bytes) > 500:
+  while len(bytes) > 150:
     strSearch = 0
     index = 0
     while index < len(bytes) and strSearch < 16:
