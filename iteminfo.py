@@ -168,12 +168,12 @@ def readItem(bytes):
 
   # class/race/diety restrictions
   playerClasses = readUInt32(bytes)
-  if playerClasses > 65535:
+  if playerClasses == 0 or playerClasses > 65535:
     raise ParseError # parse error
   item['reqClasses'] = getPlayerClasses(playerClasses)
 
   playerRaces = readUInt32(bytes)
-  if playerRaces > 65535:
+  if playerRaces == 0 or playerRaces > 65535:
     raise ParseError # parse error
   item['reqRaces'] = getPlayerRaces(playerRaces)
 
@@ -257,7 +257,10 @@ def readItem(bytes):
 
   # types of aug slots for the 6 possible
   for augSlots in range(6):
-    updateSubList(item, 'augSlots', readUInt32(bytes))
+    slot = readUInt32(bytes)
+    if slot > 32:
+      raise ParseError
+    updateSubList(item, 'augSlots', slot)
     readBytes(bytes, 2)
   if not any(item['augSlots']):
     item.pop('augSlots')
