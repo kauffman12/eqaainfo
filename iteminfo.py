@@ -6,6 +6,7 @@ import io
 import pprint
 import re
 import sys
+import traceback
 from lib.util import *
 from lib.eqdata import *
 from lib.eqreader import *
@@ -15,6 +16,32 @@ ItemData = dict()
 DBDescStrings = dict()
 DBTitleStrings = dict()
 DBSpells = dict()
+Sizes = [ 'tiny', 'small', 'medium', 'large', 'giant', 'giant' ]
+ItemClass = [ 'general', 'container', 'book' ]
+PlayerClasses = [ 'war', 'clr', 'pal', 'rng', 'shd', 'dru', 'mnk', 'brd', 'rog', 'shm', 'nec', 'wiz', 'mag', 'enc', 'bst', 'ber', 'mrc' ]
+PlayerRaces = [ 'hum', 'bar', 'eru', 'elf', 'hie', 'def', 'hef', 'dwf', 'trl', 'ogr', 'hfl', 'gnm', 'iks', 'vah', 'frg', 'drk', 'shroud' ]
+
+class ParseError (Exception):
+  pass
+
+def getAugSlots(slotMask):
+  list = []
+  for n in range(32):
+    if (slotMask & (1<<n)):
+      list.append(n + 1)
+  return list
+
+def getPlayerClasses(classMask):
+  if classMask == 65535:
+    return ['all']
+  else:
+    return [PlayerClasses[n] for n in range(17) if (classMask & (1<<n))]
+
+def getPlayerRaces(raceMask):
+  if raceMask == 65535:
+    return ['all']
+  else:
+    return [PlayerRaces[n] for n in range(17) if (raceMask & (1<<n))]
 
 def updateItem(item, key, value, rule=None):
   if not rule or rule(value):
@@ -42,9 +69,9 @@ def updateSubList2(item, key, display, value, rule=None):
 def readItemEffect(bytes):
   effect = dict()
   effect['spellID'] = readInt32(bytes)
-  updateItem(effect, 'levelReq', readUInt8(bytes), lambda x: x > 0)
+  updateItem(effect, 'reqLevel', readUInt8(bytes), lambda x: x > 0)
   effect['type'] = readInt8(bytes)
-  updateItem(effect, 'level', readInt32(bytes), lambda x: x > 0)
+  updateItem(effect, 'spellLevel', readInt32(bytes), lambda x: x > 0)
   updateItem(effect, 'charges', readInt32(bytes), lambda x: x > 0)
   effect['castTime'] = readUInt32(bytes) # cast time not used for procs
   effect['recastDelay'] = readUInt32(bytes) # recast time not used for procs
@@ -57,8 +84,11 @@ def readItemEffect(bytes):
 def readItem(bytes):
   item = dict()
 
-  readString(bytes, 16) # 16 character string
-  item['quantity'] = readUInt8(bytes)
+  # 16 character string
+  readString(bytes, 16)
+
+  # quantity but no real point to include
+  readUInt8(bytes)
 
   readBytes(bytes, 14)
   # price an item will be bought for at merchant
@@ -84,26 +114,37 @@ def readItem(bytes):
   # unknown
   readBytes(bytes, 33)
 
-  item['itemClass'] = readUInt8(bytes) # 2 book, container, 0 general
+  itemClass = readUInt8(bytes)
+  if itemClass < len(ItemClass):
+    updateSubItem(item, 'item', 'class', ItemClass[itemClass]) 
+
   item['name'] = readString(bytes)
+  if not item['name'] or not item['name'].isprintable():
+    raise ParseError # parsing error
 
   # item lore
-  updateItem(item, 'text', readString(bytes), lambda x: x != None)
+  updateItem(item, 'loreText', readString(bytes), lambda x: x != None)
 
   # used to be itemFile stuff?
-  readBytes(bytes, 3)
-  readBytes(bytes, 5) # no idea
+  readBytes(bytes, 8)
 
   # basic item info
   item['id'] = readInt32(bytes)
-  item['weight'] = readInt32(bytes) / 10
+  if not item['id']:
+    raise ParseError # parsing error
+
+  updateSubItem(item, 'item', 'weight', readInt32(bytes) / 10)
   updateSubList2(item, 'header', 'norent', readInt8(bytes), lambda x: x == 0)
   updateSubList2(item, 'header', 'notrade', readInt8(bytes), lambda x: x == 0)
   updateSubList2(item, 'header', 'attunable', readInt8(bytes), lambda x: x != 0)
-  item['size'] = readUInt8(bytes)
+
+  # size
+  size = readUInt8(bytes)
+  if size < len(Sizes):
+    updateSubItem(item, 'item', 'size', Sizes[size])
 
   # bit mask of slots
-  item['slotMask'] = readUInt32(bytes)
+  updateItem(item, 'fitsInvSlots', readUInt32(bytes), lambda x: x > 0)
 
   updateSubItem(item, 'price', 'sell', readUInt32(bytes))
   item['icon'] = readUInt32(bytes)
@@ -130,9 +171,15 @@ def readItem(bytes):
     updateSubItem(item, 'mods', mods, readInt32(bytes), lambda x: x)
 
   # class/race/diety restrictions
-  item['classMask'] = readUInt32(bytes)
-  item['raceMask'] = readUInt32(bytes)
-  updateItem(item, 'deity', readUInt32(bytes), lambda x: x)
+  playerClasses = readUInt32(bytes)
+  if playerClasses > 65535:
+    raise ParseError # parse error
+  item['reqClasses'] = getPlayerClasses(playerClasses)
+
+  playerRaces = readUInt32(bytes)
+  if playerRaces > 65535:
+    raise ParseError # parse error
+  item['reqRaces'] = getPlayerRaces(playerRaces)
 
   # skill modifier
   for skillMod in ['percent', 'max', 'skill']:
@@ -145,9 +192,13 @@ def readItem(bytes):
 
   # used if item is food or a drink
   updateItem(item, 'duration', readUInt32(bytes), lambda x: x > 0)
-  updateItem(item, 'levelReq', readUInt32(bytes), lambda x: x > 0)
-  updateItem(item, 'levelRec', readUInt32(bytes), lambda x: x > 0)
-  updateItem(item, 'skillReq', readUInt32(bytes), lambda x: x > 0)
+  updateItem(item, 'reqLevel', readUInt32(bytes), lambda x: x > 0)
+  updateItem(item, 'recLevel', readUInt32(bytes), lambda x: x > 0)
+  if 'reqLevel' in item and item['reqLevel'] > 250 or 'recLevel' in item and item['recLevel'] > 250:
+    raise ParseError # parse error
+
+  # skill required
+  updateItem(item, 'reqSkill', readUInt32(bytes), lambda x: x > 0)
 
   readBytes(bytes, 8) # bard checks?
   updateItem(item, 'light', readInt8(bytes), lambda x: x)
@@ -170,13 +221,13 @@ def readItem(bytes):
   updateSubList2(item, 'header', 'prestige', readUInt32(bytes), lambda x: x)
 
   # weapon/armor/inventory/book/etc
-  item['itemType'] = readInt8(bytes)
-  updateSubList2(item, 'header', 'augmentation', item['itemType'], lambda x: x == 54)
+  updateSubItem(item, 'item', 'type', readUInt8(bytes))
+  updateSubList2(item, 'header', 'augmentation', item['item']['type'], lambda x: x == 54)
 
   # 0 = cloth, 1 = leather, 16 = plain robe, etc
   # parse for armor only
   material = readUInt32(bytes)
-  if item['itemType'] == 10:
+  if item['item']['type'] == 10:
     item['material'] = material
   readBytes(bytes, 12) # unknown
   # repeated material type?
@@ -196,7 +247,9 @@ def readItem(bytes):
   updateItem(item, 'charmFile', readString(bytes), lambda x: x)
 
   # type of aug 3, 4, 19, etc
-  updateItem(item, 'augTypeMask', readUInt32(bytes), lambda x: x)
+  augTypes = readUInt32(bytes)
+  if augTypes > 0:
+    item['augTypes'] = getAugSlots(augTypes)
 
   # -1 for everything so far
   readBytes(bytes, 4)
@@ -286,12 +339,11 @@ def readItem(bytes):
   readBytes(bytes, 8) # unknown
   updateSubList2(item, 'header', 'heirloom', readInt8(bytes), lambda x: x == 1)
   updateSubList2(item, 'header', 'placeable', readInt8(bytes), lambda x: x)
-  readBytes(bytes, 5) # unknown
 
   # not always the end but we search for the next item
-  readBytes(bytes, 73)
-  updateItem(item, 'luckMin', readInt32(bytes), lambda x: x > 0)
-  updateItem(item, 'luckMax', readInt32(bytes), lambda x: x > 0)
+  readBytes(bytes, 78)
+  updateSubItem(item, 'luck', 'min', readInt32(bytes), lambda x: x > 0)
+  updateSubItem(item, 'luck', 'max', readInt32(bytes), lambda x: x > 0)
   return item
 
 # instead of relying on opcodes look for 16 character printable strings that seem to go along
@@ -316,10 +368,11 @@ def handleEQPacket(opcode, bytes, timeStamp):
     
     if strSearch == 16:
       try:
-        item = readItem(bytes)
-        if item['name'] and item['name'].isprintable() and item['id'] and item['raceMask'] <= 65535 and item['classMask'] <= 65535:
-          list.append(item)
+        list.append(readItem(bytes))
+      except ParseError:
+        pass
       except:
+        traceback.print_exc()
         pass
 
   # if at least a few parsed OK then keep them
@@ -332,10 +385,8 @@ def saveItemData():
   bleh = None
   try:
     for key in sorted([*ItemData]):
-      bleh = key
       printer.pprint(ItemData[key])
-  except:
-    print (ItemData[bleh])
+  except e as Exception:
     pass
   file.close()
   print('Saved data for %d Items to %s' % (len(ItemData), OutputFile))
