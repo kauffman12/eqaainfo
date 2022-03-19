@@ -25,11 +25,7 @@ class ParseError (Exception):
   pass
 
 def getAugSlots(slotMask):
-  list = []
-  for n in range(32):
-    if (slotMask & (1<<n)):
-      list.append(n + 1)
-  return list
+  return [(n + 1) for n in range(32) if (slotMask & (1<<n))]
 
 def getPlayerClasses(classMask):
   if classMask == 65535:
@@ -181,6 +177,8 @@ def readItem(bytes):
     raise ParseError # parse error
   item['reqRaces'] = getPlayerRaces(playerRaces)
 
+  updateItem(item, 'deity', readUInt32(bytes), lambda x: x)
+
   # skill modifier
   for skillMod in ['percent', 'max', 'skill']:
     updateSubItem(item, 'skillMod', skillMod, readInt32(bytes), lambda x: x > 0)
@@ -247,15 +245,15 @@ def readItem(bytes):
   updateItem(item, 'charmFile', readString(bytes), lambda x: x)
 
   # type of aug 3, 4, 19, etc
-  augTypes = readUInt32(bytes)
-  if augTypes > 0:
-    item['augTypes'] = getAugSlots(augTypes)
+  fitsAugSlots = readUInt32(bytes)
+  if fitsAugSlots > 0:
+    item['fitsAugSlots'] = getAugSlots(fitsAugSlots)
 
   # -1 for everything so far
   readBytes(bytes, 4)
 
   # 4 = 2h only, 3 = 1h only
-  updateItem(item, 'augRestrictions', readUInt32(bytes), lambda x: x)
+  updateItem(item, 'fitsAugType', readUInt32(bytes), lambda x: x)
 
   # types of aug slots for the 6 possible
   for augSlots in range(6):
