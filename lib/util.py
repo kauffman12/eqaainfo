@@ -77,21 +77,23 @@ def readUInt32(buffer):
 def readString(buffer, maxLength=0):
   result = None
   count = 0
-  while (count < len(buffer) and buffer[count] != 0 and (not maxLength or count < maxLength)):
-    count += 1
-  if count > 0:
-    try:
-      result = buffer[0:count].decode()
-    except:
-      del buffer[0:count]
-      return '' # something out of order
 
-  # delete null terminator if one was found
-  # some strings in EQ dont have one for some reason
-  if buffer[count] == 0:
-    count += 1
+  if buffer:
+    while (count < len(buffer) and buffer[count] != 0 and (not maxLength or count < maxLength)):
+      count += 1
+    if count > 0:
+      try:
+        result = buffer[0:count].decode()
+      except:
+        del buffer[0:count]
+        return '' # something out of order
 
-  del buffer[0:count]
+    # delete null terminator if one was found
+    # some strings in EQ dont have one for some reason
+    if buffer[count] == 0:
+      count += 1
+
+    del buffer[0:count]
   return result
 
 def printBytes(buffer):
