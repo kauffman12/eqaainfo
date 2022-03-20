@@ -44,6 +44,11 @@ def readBytes(buffer, count):
   del buffer[0:count]
   return value
 
+def readFloat32(buffer):
+  value = buffer[0:4]
+  del buffer[0:4]
+  return struct.unpack('<f', value)[0]
+
 def readInt8(buffer):
   value = buffer[0:1]
   del buffer[0:1]
@@ -75,7 +80,7 @@ def readUInt32(buffer):
   return int.from_bytes(value, 'little', signed=False)
 
 def readString(buffer, maxLength=0):
-  result = None
+  result = ''
   count = 0
 
   if buffer:
