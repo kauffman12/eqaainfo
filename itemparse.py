@@ -1,7 +1,7 @@
 #
-# Script for parse pcap output for items.
-# Saves in old format similar to what EQ websites use to make
-# it easy for everyone to use if needed.
+# Script to parse pcap output for items.
+# Saves in an old format similar to what EQ websites rely on so
+# others are more familiar with the data output
 #
 
 import io
