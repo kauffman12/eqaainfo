@@ -11,10 +11,11 @@ from lib.util import *
 from lib.eqdata import *
 from lib.eqreader import *
 
+Columns = []
 ColumnsFile = 'columns.txt'
 OutputFile = 'iteminfo.txt'
 ItemData = dict()
-Columns = []
+SkipOpcode = dict()
 
 class ParseError (Exception):
   pass
@@ -28,11 +29,8 @@ def readItem(bytes):
   evolveLevel = 0
   evolveMaxLevel = 0
 
-  readString(bytes, 16)               # 16 character string
   readUInt8(bytes)                    # quantity
-  readBytes(bytes, 14)                # unknown
-  readUInt32(bytes)                   # price @ merchant
-  readBytes(bytes, 40)                # unknown
+  readBytes(bytes, 58)                # unknown
 
   # can be converted / name length
   convertable = readUInt32(bytes)
@@ -49,11 +47,16 @@ def readItem(bytes):
     readBytes(bytes, 8)               # how far into level?
     evolveMaxLevel = readUInt8(bytes)
     readBytes(bytes, 7)
+    if evolveLevel > evolveMaxLevel: 
+      raise ParseError
 
   readBytes(bytes, 33)                # unknown
 
   # main item structure starts here 
-  data.append(readUInt8(bytes))       # item class
+  itemClass = readUInt8(bytes)
+  if itemClass > 2:
+    raise ParseError
+  data.append(itemClass)
 
   # handle name and throw error if invalid since is the
   # most common sign that we're not at the right place
@@ -64,14 +67,8 @@ def readItem(bytes):
   data.append(name)
 
   data.append(readString(bytes))      # item lore
-
-  idfile = readInt32(bytes)
-  if idfile == 0 or idfile > 0xffffff: raise ParseError
-  data.append(idfile)
-
-  idfile2 = readInt32(bytes)
-  if idfile2 > 0xffffff: raise ParseError
-  data.append(idfile2)
+  data.append(readInt32(bytes))       # idfile
+  data.append(readInt32(bytes))       # idfile2
 
   # handle if and also throw errors if one does not exist
   id = readInt32(bytes)
@@ -103,17 +100,17 @@ def readItem(bytes):
   
   # class restrictions
   reqClasses = readUInt32(bytes)
-  if reqClasses > 65535: raise ParseError
+  if reqClasses > 131072: raise ParseError   # account for mercs
   data.append(reqClasses)
 
   # race restrictions
   reqRaces = readUInt32(bytes)
-  if reqRaces > 65535: raise ParseError
+  if reqRaces > 131072: raise ParseError     # 1 higher than max
   data.append(reqRaces)
 
   # deity restrictions
   reqDeity = readUInt32(bytes)
-  if reqDeity > 65535: raise ParseError
+  if reqDeity > 131072: raise ParseError     # 1 higher than max
   data.append(reqDeity)
 
   # dodge/tradeskill/etc
@@ -130,8 +127,9 @@ def readItem(bytes):
   for misc in ['food/drink duration', 'req level', 'rec level']:
     data.append(readUInt32(bytes))
 
-  # some extra error checking
-  if data[len(data) - 1] > 254 or data[len(data) - 2] > 254: raise ParseError
+  # some extra error checking for level requirements
+  if data[len(data) - 1] > 254 or data[len(data) - 2] > 254:
+    raise ParseError
 
   data.append(readUInt32(bytes))      # skill required to use
   data.append(readUInt32(bytes))      # bard type?
@@ -198,8 +196,8 @@ def readItem(bytes):
   for misc in ['guild tribute', 'aug distiller needed']:
     data.append(readUInt32(bytes))
 
-  data.append(readUInt32(bytes))      # UNKNOWN 01
-  data.append(readUInt32(bytes))      # UNKNOWN 02
+  data.append(readUInt32(bytes))      # UNKNOWN 01 | -1
+  data.append(readUInt32(bytes))      # UNKNOWN 02 |  0
   data.append(readInt8(bytes))        # nopet
   data.append(readUInt8(bytes))       # UNKNOWN 03
   data.append(readUInt32(bytes))      # stack size
@@ -290,32 +288,48 @@ def readItem(bytes):
 def handleEQPacket(opcode, bytes, timeStamp):
   global ItemData
 
-  while len(bytes) > 400:
-    strSearch = 0
-    i = 0
-    while i < len(bytes) and strSearch < 16:
-      # check for some valid characters that seem appropriate
-      if bytes[i] > 42 and bytes[i] < 123 and bytes[i] not in [47, 64, 92]:
-        strSearch += 1
-      else:
-        strSearch = 0
-      i += 1
+  if not opcode in SkipOpcode:
+    handled = False
+    while len(bytes) > 800:
+      strSearch = 0
+      i = 0
+      while i < len(bytes) and strSearch < 16:
+        # check for some valid characters that seem appropriate
+        if bytes[i] > 42 and bytes[i] < 123 and bytes[i] not in [47, 64, 92]:
+          strSearch += 1
+        else:
+          strSearch = 0
+        i += 1
 
-    begin = i - strSearch;
-    if begin > 0:
-      del bytes[0:begin]
+      begin = i - strSearch;
+      if begin > 0:
+        del bytes[0:begin]
     
-    if strSearch == 16:
-      try:
-        data = readItem(bytes)
-        if data and (len(data) == len(Columns)):
-          if not opcode in ItemData: ItemData[opcode] = dict()
-          ItemData[opcode][data[5]] = data
-      except ParseError:
-        pass
-      except:
-        traceback.print_exc()
-        pass
+      if strSearch == 16:
+        try:
+          # test that it's really a string of length 16 by trying to read
+          # a longer string and making sure it stops at 16
+          test = readString(bytes[0:20], 20)
+          del bytes[0:len(test) + 1] # plus null
+
+          if len(test) == 16:
+            data = readItem(bytes)
+            if data and (len(data) == len(Columns)):
+              # save by opcode incase we want to compare items that show
+              # up from more than one
+              if not opcode in ItemData: ItemData[opcode] = dict()
+              ItemData[opcode][data[5]] = data
+              handled = True
+        except ParseError:
+          #traceback.print_exc()
+          pass
+        except:
+          traceback.print_exc()
+          pass
+    if not handled:
+      # no data was found so stop trying
+      SkipOpcode[opcode] = True
+      pass
 
 def saveItemData():
   if len(ItemData) > 0:
@@ -330,7 +344,7 @@ def saveItemData():
       counts.append({ 'opcode': key, 'count': len(ItemData[key]) })
 
     combined = dict()
-    for item in sorted(counts, reverse=True, key=lambda item: item['count'])[0:2]:
+    for item in sorted(counts, reverse=True, key=lambda item: item['count']):
       for id in ItemData[item['opcode']]:
         combined[id] = ItemData[item['opcode']][id]
  
