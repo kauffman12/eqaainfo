@@ -15,6 +15,7 @@ Columns = []
 ColumnsFile = 'columns.txt'
 OutputFile = 'iteminfo.txt'
 ItemData = dict()
+MadeBy = dict()
 SkipOpcode = dict()
 
 class ParseError (Exception):
@@ -280,7 +281,8 @@ def readItem(bytes):
   data.append(convertToId)
   data.append(convertToName)
 
-  #print('|'.join(str(s) for s in data))
+  # add default value for madeby field
+  data.append('')
   return data
 
 # instead of relying on opcodes look for 16 character printable strings that seem to go along
@@ -290,42 +292,53 @@ def handleEQPacket(opcode, bytes, timeStamp):
 
   if not opcode in SkipOpcode:
     handled = False
-    while len(bytes) > 800:
-      strSearch = 0
-      i = 0
-      while i < len(bytes) and strSearch < 16:
-        # check for some valid characters that seem appropriate
-        if bytes[i] > 42 and bytes[i] < 123 and bytes[i] not in [47, 64, 92]:
-          strSearch += 1
-        else:
-          strSearch = 0
-        i += 1
 
-      begin = i - strSearch;
-      if begin > 0:
-        del bytes[0:begin]
+    # check for marketplace item description packet
+    if len(bytes) > 23 and len(bytes) < 100:
+      id = readUInt32(bytes[0:4])
+      space = readUInt16(bytes[4:6])
+      nameLen = readUInt32(bytes[6:10])
+      if id > 0 and space == 0 and (23 + nameLen) == len(bytes):
+        name = readString(bytes[10:10+nameLen])
+        if len(name) > 0:
+          MadeBy[id] = name
+          handled = True
+    else:
+      while len(bytes) > 800:
+        strSearch = 0
+        i = 0
+        while i < len(bytes) and strSearch < 16:
+          # check for some valid characters that seem appropriate
+          if bytes[i] > 42 and bytes[i] < 123 and bytes[i] not in [47, 64, 92]:
+            strSearch += 1
+          else:
+            strSearch = 0
+          i += 1
+
+        begin = i - strSearch;
+        if begin > 0:
+          del bytes[0:begin]
     
-      if strSearch == 16:
-        try:
-          # test that it's really a string of length 16 by trying to read
-          # a longer string and making sure it stops at 16
-          test = readString(bytes[0:20], 20)
-          del bytes[0:len(test) + 1] # plus null
+        if strSearch == 16:
+          try:
+            # test that it's really a string of length 16 by trying to read
+            # a longer string and making sure it stops at 16
+            test = readString(bytes[0:20], 20)
+            del bytes[0:len(test) + 1] # plus null
 
-          if len(test) == 16:
-            data = readItem(bytes)
-            if data and (len(data) == len(Columns)):
-              # save by opcode incase we want to compare items that show
-              # up from more than one
-              if not opcode in ItemData: ItemData[opcode] = dict()
-              ItemData[opcode][data[5]] = data
-              handled = True
-        except ParseError:
-          #traceback.print_exc()
-          pass
-        except:
-          traceback.print_exc()
-          pass
+            if len(test) == 16:
+              data = readItem(bytes)
+              if data and (len(data) == len(Columns)):
+                # save by opcode incase we want to compare items that show
+                # up from more than one
+                if not opcode in ItemData: ItemData[opcode] = dict()
+                ItemData[opcode][data[5]] = data
+                handled = True
+          except ParseError:
+            pass
+          except:
+            traceback.print_exc()
+            pass
     if not handled:
       # no data was found so stop trying
       SkipOpcode[opcode] = True
@@ -349,6 +362,9 @@ def saveItemData():
         combined[id] = ItemData[item['opcode']][id]
  
     for id in sorted(combined.keys()):
+      # update MadeBy if needed
+      if id in MadeBy:
+        combined[id][-1] = MadeBy[id]
       file.write('|'.join(str(s) for s in combined[id]))
       file.write('\n')
 
