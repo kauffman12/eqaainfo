@@ -288,7 +288,7 @@ def readItem(bytes):
 # instead of relying on opcodes look for 16 character printable strings that seem to go along
 # with each item entry and try to parse them
 def handleEQPacket(opcode, bytes, timeStamp):
-  global ItemData
+  global ItemData, MadeBy
 
   if not opcode in SkipOpcode:
     handled = False
