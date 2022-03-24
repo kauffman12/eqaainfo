@@ -264,3 +264,4 @@ convertitem
 convertid
 convertname
 madeby
+extradetails

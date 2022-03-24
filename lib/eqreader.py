@@ -34,7 +34,7 @@ def getDirection(srcIP, dstIP, srcPort, dstPort):
       direction = ClientToServer
   return direction
 
-def findAppPacket(callback, uncompressed, timeStamp):
+def findAppPacket(callback, uncompressed, timeStamp, clientToServer):
   code = readUInt16(uncompressed)
 
   if (code == 0x1900):
@@ -46,16 +46,17 @@ def findAppPacket(callback, uncompressed, timeStamp):
         size = readBytes(uncompressed, 1)[0]
       newPacket = readBytes(uncompressed, size)
       appOpcode = readUInt16(newPacket)
-      callback(appOpcode, newPacket, timeStamp)    
+      callback(appOpcode, newPacket, timeStamp, clientToServer)
   else:
-    callback(code, uncompressed, timeStamp)
+    callback(code, uncompressed, timeStamp, clientToServer)
 
 def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, isSubPacket):
   global CryptoFlag, FragmentSeq, Fragments, FragmentedPacketSize, LastSeq
   opcode = readBUInt16(bytes)
 
   direction = getDirection(srcIP, dstIP, srcPort, dstPort)
-  if ((direction == UnknownDirection and opcode != 0x01) or (direction == ClientToServer and opcode != 0x02)):
+  #if ((direction == UnknownDirection and opcode != 0x01) or (direction == ClientToServer and opcode != 0x02)):
+  if ((direction == UnknownDirection and opcode != 0x01)):
     return
 
   # Check if this is a UCS connection and if so, skip packets until we see another Session Request
@@ -87,7 +88,7 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
     # Packet
     elif (opcode == 0x09):
       uncompressed = uncompress(bytes, isSubPacket, True)
-      findAppPacket(callback, uncompressed[2:], timeStamp) 
+      findAppPacket(callback, uncompressed[2:], timeStamp, direction == ClientToServer) 
 
     # Fragment
     elif (opcode == 0x0d):
@@ -112,7 +113,7 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
           FragmentSeq += 1
         # no issues
         if ((len(Fragments) == FragmentedPacketSize and FragmentSeq <= LastSeq)):
-          findAppPacket(callback, Fragments, timeStamp)
+          findAppPacket(callback, Fragments, timeStamp, direction == ClientToServer)
           FragmentSeq = -1
         elif (seq > LastSeq): # sequence skipped too far ahead
           #print('Warning: data missing from sequence ending %d' % LastSeq)

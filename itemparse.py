@@ -14,9 +14,12 @@ from lib.eqreader import *
 Columns = []
 ColumnsFile = 'columns.txt'
 OutputFile = 'iteminfo.txt'
+ExtraInfo = dict()
+IdNameCache = dict()
 ItemData = dict()
 MadeBy = dict()
 SkipOpcode = dict()
+NeedExtra = 0
 
 class ParseError (Exception):
   pass
@@ -283,68 +286,97 @@ def readItem(bytes):
 
   # add default value for madeby field
   data.append('')
+
+  # add default value for extra item info
+  data.append('')
+
+  # cache id and names for testing requests
+  IdNameCache[data[5]] = data[1]
   return data
 
 # instead of relying on opcodes look for 16 character printable strings that seem to go along
 # with each item entry and try to parse them
-def handleEQPacket(opcode, bytes, timeStamp):
-  global ItemData, MadeBy
+def handleEQPacket(opcode, bytes, timeStamp, clientToServer):
+  global ItemData, MadeBy, NeedExtra, IdNameCache, SkipOpCode, ExtraInfo
 
   if not opcode in SkipOpcode:
     handled = False
 
-    # check for marketplace item description packet
-    if len(bytes) > 23 and len(bytes) < 100:
-      id = readUInt32(bytes[0:4])
-      space = readUInt16(bytes[4:6])
-      nameLen = readUInt32(bytes[6:10])
-      if id > 0 and space == 0 and (23 + nameLen) == len(bytes):
-        name = readString(bytes[10:10+nameLen])
-        if len(name) > 0:
-          MadeBy[id] = name
-          handled = True
-    else:
-      while len(bytes) > 800:
-        strSearch = 0
-        i = 0
-        while i < len(bytes) and strSearch < 16:
-          # check for some valid characters that seem appropriate
-          if bytes[i] > 42 and bytes[i] < 123 and bytes[i] not in [47, 64, 92]:
-            strSearch += 1
-          else:
-            strSearch = 0
-          i += 1
+    if clientToServer:
+      if len(bytes) > 12:
+        id = readUInt32(bytes[0:4])
+        space = readUInt32(bytes[4:8])
+        nameLen = readUInt32(bytes[8:12])
+        if id in IdNameCache:
+          if nameLen > 0 and nameLen < 100:
+            name = readString(bytes[12:12+nameLen])
+            if IdNameCache[id] == name:
+              NeedExtra = id
+              handled = True
+    else:  
+      # attempt to read extra item details like charms have about how they work
+      if NeedExtra:
+        header = bytearray([0x0, 0x0, 0x0, 0x0, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0])
+        if len(bytes) > len(header):
+          if bytes[0:len(header)] == header:
+            ExtraInfo[NeedExtra] = readString(bytes[len(header):])
+      NeedExtra = 0
+      handled = True
 
-        begin = i - strSearch;
-        if begin > 0:
-          del bytes[0:begin]
+      # check for marketplace item description packet
+      if len(bytes) > 23 and len(bytes) < 100:
+        id = readUInt32(bytes[0:4])
+        space = readUInt16(bytes[4:6])
+        nameLen = readUInt32(bytes[6:10])
+        if id > 0 and space == 0 and (23 + nameLen) == len(bytes):
+          name = readString(bytes[10:10+nameLen])
+          if len(name) > 0:
+            MadeBy[id] = name
+            handled = True
+      else:
+        while len(bytes) > 800:
+          strSearch = 0
+          i = 0
+          while i < len(bytes) and strSearch < 16:
+            # check for some valid characters that seem appropriate
+            if bytes[i] > 42 and bytes[i] < 123 and bytes[i] not in [47, 64, 92]:
+              strSearch += 1
+            else:
+              strSearch = 0
+            i += 1
+
+          begin = i - strSearch;
+          if begin > 0:
+            del bytes[0:begin]
     
-        if strSearch == 16:
-          try:
-            # test that it's really a string of length 16 by trying to read
-            # a longer string and making sure it stops at 16
-            test = readString(bytes[0:20], 20)
-            del bytes[0:len(test) + 1] # plus null
+          if strSearch == 16:
+            try:
+              # test that it's really a string of length 16 by trying to read
+              # a longer string and making sure it stops at 16
+              test = readString(bytes[0:20], 20)
+              del bytes[0:len(test) + 1] # plus null
 
-            if len(test) == 16:
-              data = readItem(bytes)
-              if data and (len(data) == len(Columns)):
-                # save by opcode incase we want to compare items that show
-                # up from more than one
-                if not opcode in ItemData: ItemData[opcode] = dict()
-                ItemData[opcode][data[5]] = data
-                handled = True
-          except ParseError:
-            pass
-          except:
-            traceback.print_exc()
-            pass
-    if not handled:
+              if len(test) == 16:
+                data = readItem(bytes)
+                if data and (len(data) == len(Columns)):
+                  # save by opcode incase we want to compare items that show
+                  # up from more than one
+                  if not opcode in ItemData: ItemData[opcode] = dict()
+                  ItemData[opcode][data[5]] = data
+                  handled = True
+            except ParseError:
+              pass
+            except:
+              traceback.print_exc()
+              pass
+    if not handled and not clientToServer:
       # no data was found so stop trying
       SkipOpcode[opcode] = True
       pass
 
 def saveItemData():
+  global ItemData, MadeBy, ExtraInfo
+
   if len(ItemData) > 0:
     file = open(OutputFile, 'w')
     file.write('|'.join(str(s) for s in Columns))
@@ -364,7 +396,9 @@ def saveItemData():
     for id in sorted(combined.keys()):
       # update MadeBy if needed
       if id in MadeBy:
-        combined[id][-1] = MadeBy[id]
+        combined[id][-2] = MadeBy[id]
+      if id in ExtraInfo:
+        combined[id][-1] = ExtraInfo[id]
       file.write('|'.join(str(s) for s in combined[id]))
       file.write('\n')
 
