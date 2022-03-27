@@ -7,7 +7,7 @@ from scapy.all import *
 
 writer = 0
 def packet_callback(packet):
-  if packet[UDP] and packet[UDP].payload:
+  if packet and packet[UDP] and packet[UDP].payload:
     writer.write(packet)
 
 def main(args):
@@ -28,6 +28,6 @@ def main(args):
 
     print('Capturing to %s (Ctrl+C to Stop)' % args[1], flush = True)
     writer = PcapWriter(args[1], append=True, sync=False)
-    sniff(filter="src net 69.174 or dst net 69.174", prn=packet_callback, store=0)
+    sniff(filter="udp and (src net 69.174 or dst net 69.174)", timeout=None, prn=packet_callback, store=0)
 
 main(sys.argv)
