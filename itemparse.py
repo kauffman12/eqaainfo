@@ -8,6 +8,7 @@ import io
 import signal
 import sys
 import traceback
+from datetime import date
 from scapy.all import *
 
 from lib.util import *
@@ -16,7 +17,8 @@ from lib.eqreader import *
 
 Columns = []
 ColumnsFile = 'columns.txt'
-OutputFile = 'iteminfo.txt'
+DateTimeFormat = '%d%m%y%H%M%S'
+OutputFile = 'items'
 ExtraInfo = dict()
 ExtraInfoOpCode = -1
 CharmCache = dict()
@@ -25,6 +27,7 @@ CharmFileNext = ''
 IdNameCache = dict()
 ItemData = dict()
 MadeBy = dict()
+StartTime = ''
 
 class ParseError (Exception):
   pass
@@ -249,6 +252,8 @@ def readItem(bytes):
   # 2 = cure pot, 5 = celestial heal pot, 7 = dragon magic, 17 = fast mounts
   data.append(readInt8(bytes))        # UNKNOWN 9
 
+  if any(bytes[0:4]):
+    printBytes(bytes[0:4])
   data.append(readUInt32(bytes))      # UNKNOWN 10
   data.append(readUInt32(bytes))      # UNKNOWN 11
   data.append(readInt8(bytes))        # heirloom
@@ -403,10 +408,12 @@ def handleEQPacket(opcode, bytes, timeStamp, clientToServer):
             pass
 
 def saveData():
-  global CharmCache, ItemData, ExtraInfo
+  global CharmCache, ItemData, ExtraInfo, StartTime
 
   if len(ItemData) > 0:
-    file = open(OutputFile, 'w')
+    endTime = datetime.now().strftime(DateTimeFormat)
+    fileName = ('%s%s+%s.txt' % (OutputFile, StartTime, endTime))
+    file = open(fileName, 'w')
     file.write('|'.join(str(s) for s in Columns))
     file.write('\n')
 
@@ -433,7 +440,7 @@ def saveData():
       file.write('\n')
 
     file.close()
-    print('Saved %d items to %s' % (len(combined), OutputFile), flush=True)
+    print('Saved %d items to %s' % (len(combined), fileName), flush=True)
   else:
     print('No item data found. Format change?', flush=True)
   exit(1)
@@ -447,10 +454,13 @@ def packet_callback(packet):
       print(error, flush=True)
 
 def main(args):
+  global StartTime
+
   if (len(args) < 2):
     print ('Usage: ' + args[0] + ' -capture | -file <pcap file>')
   else:
     try:
+      StartTime = datetime.now().strftime(DateTimeFormat)
       file = open(ColumnsFile, 'r')
       for line in file: Columns.append(line.strip()) 
 
