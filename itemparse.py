@@ -415,7 +415,10 @@ def saveData():
 
   if len(ItemData) > 0:
     endTime = datetime.now().strftime(DateTimeFormat)
-    fileName = ('%s%s+%s.txt' % (OutputFile, StartTime, endTime))
+    if ReadingFile:
+      fileName = ('%s.txt' % OutputFile)
+    else:
+      fileName = ('%s%s+%s.txt' % (OutputFile, StartTime, endTime))
     file = open(fileName, 'w')
     file.write('|'.join(str(s) for s in Columns))
     file.write('\n')
