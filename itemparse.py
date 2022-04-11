@@ -27,6 +27,7 @@ CharmFileNext = ''
 IdNameCache = dict()
 ItemData = dict()
 MadeBy = dict()
+ReadingFile = False
 StartTime = ''
 
 class ParseError (Exception):
@@ -252,8 +253,6 @@ def readItem(bytes):
   # 2 = cure pot, 5 = celestial heal pot, 7 = dragon magic, 17 = fast mounts
   data.append(readInt8(bytes))        # UNKNOWN 9
 
-  if any(bytes[0:4]):
-    printBytes(bytes[0:4])
   data.append(readUInt32(bytes))      # UNKNOWN 10
   data.append(readUInt32(bytes))      # UNKNOWN 11
   data.append(readInt8(bytes))        # heirloom
@@ -311,7 +310,7 @@ def readItem(bytes):
 # instead of relying on opcodes look for 16 character printable strings that seem to go along
 # with each item entry and try to parse them
 def handleEQPacket(opcode, bytes, timeStamp, clientToServer):
-  global ItemData, IdNameCache, MadeBy, ExtraInfo, ExtraInfoOpCode, CharmCache, CharmCacheOpCode, CharmFileNext
+  global ItemData, IdNameCache, MadeBy, ReadingFile, ExtraInfo, ExtraInfoOpCode, CharmCache, CharmCacheOpCode, CharmFileNext
 
   if clientToServer:
     handled = False
@@ -343,7 +342,8 @@ def handleEQPacket(opcode, bytes, timeStamp, clientToServer):
         extra = readString(bytes[12:])
         if extra and len(extra) > 1 and CharmFileNext in CharmCache:
           CharmCache[CharmFileNext] = extra
-          print('Update %s description: %s' % (CharmFileNext, extra))
+          if not ReadingFile:
+            print('Update %s description: %s' % (CharmFileNext, extra))
     # item info opcode
     elif opcode == ExtraInfoOpCode and len(bytes) > 9:
       id = readUInt32(bytes[0:4])
@@ -361,7 +361,8 @@ def handleEQPacket(opcode, bytes, timeStamp, clientToServer):
             sp3 = readUInt8(remain)
             if sp == 0 and one == 1 and sp2 == 0 and sp3 == 0 and not len(remain):
               MadeBy[id] = name
-              print('Update item %d is made by %s' % (id, name))
+              if not ReadingFile:
+                print('Update item %d is made by %s' % (id, name))
         # maybe its item info with id in packet
         elif sp == 0 and nameLen == 0:
           descLen = readUInt32(bytes[10:14])
@@ -369,7 +370,8 @@ def handleEQPacket(opcode, bytes, timeStamp, clientToServer):
             desc = readString(bytes[14:])
             if len(desc) == (descLen + 1):
               ExtraInfo[id] = desc[:-1]
-              print('Update %d description: %s' % (id, ExtraInfo[id]))
+              if not ReadingFile:
+                print('Update %d description: %s' % (id, ExtraInfo[id]))
     else:
       while len(bytes) > 800:
         strSearch = 0
@@ -400,7 +402,8 @@ def handleEQPacket(opcode, bytes, timeStamp, clientToServer):
                 # up from more than one
                 if not opcode in ItemData: ItemData[opcode] = dict()
                 ItemData[opcode][data[5]] = data
-                print('Read item: %s (%d)' % (data[1], data[5]))
+                if not ReadingFile:
+                  print('Read Item: %s (%d)' % (data[1], data[5]))
           except ParseError:
             pass
           except:
@@ -454,7 +457,7 @@ def packet_callback(packet):
       print(error, flush=True)
 
 def main(args):
-  global StartTime
+  global ReadingFile, StartTime
 
   if (len(args) < 2):
     print ('Usage: ' + args[0] + ' -capture | -file <pcap file>')
@@ -465,10 +468,12 @@ def main(args):
       for line in file: Columns.append(line.strip()) 
 
       if '-capture' == args[1]:
+        ReadingFile = False
         signal.signal(signal.SIGINT, lambda signum, frame: saveData())
         print('Waiting for data. You may need to zone. (Ctrl+C to Save/Exit)', flush=True)
         sniff(filter="udp and (src net 69.174 or dst net 69.174)", timeout=None, prn=packet_callback, store=0)
       elif '-file' == args[1]:
+        ReadingFile = True
         print('Reading %s' % args[2])
         readPcap(handleEQPacket, args[2])
         saveData()
