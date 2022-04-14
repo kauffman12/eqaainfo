@@ -145,7 +145,6 @@ def readItem(bytes):
   if data[len(data) - 1] > 254 or data[len(data) - 2] > 254:
     raise ParseError
 
-  #readBytes(bytes, 4)  #testing
   data.append(readUInt32(bytes))      # bard type?
   data.append(readInt32(bytes))       # bard value?
   data.append(readInt8(bytes))        # light level
@@ -198,7 +197,6 @@ def readItem(bytes):
   data.append(readString(bytes))      # book filename
   data.append(readInt32(bytes))       # lore group
 
-  #readInt8(bytes) #testing
   data.append(readInt8(bytes))        # artifact
   data.append(readUInt32(bytes))      # tribute
   data.append(readInt8(bytes))        # fv nodrop
