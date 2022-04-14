@@ -145,7 +145,7 @@ def readItem(bytes):
   if data[len(data) - 1] > 254 or data[len(data) - 2] > 254:
     raise ParseError
 
-  data.append(readUInt32(bytes))      # skill required to use
+  #readBytes(bytes, 4)  #testing
   data.append(readUInt32(bytes))      # bard type?
   data.append(readInt32(bytes))       # bard value?
   data.append(readInt8(bytes))        # light level
@@ -198,9 +198,8 @@ def readItem(bytes):
   data.append(readString(bytes))      # book filename
   data.append(readInt32(bytes))       # lore group
 
-  for header in ['artifact', 'summoned']:
-    data.append(readInt8(bytes))
-
+  #readInt8(bytes) #testing
+  data.append(readInt8(bytes))        # artifact
   data.append(readUInt32(bytes))      # tribute
   data.append(readInt8(bytes))        # fv nodrop
 
@@ -219,8 +218,10 @@ def readItem(bytes):
   data.append(readInt8(bytes))        # expendable arrow
 
   # unknown section that's always zeros
-  for unknown in range(5):
-    data.append(readUInt32(bytes))    # UNKNOWN 04 to 08
+  for unknown in range(19):
+    data.append(readUInt32(bytes))    # UNKNOWN 04 to 22 
+
+  data.append(readUInt16(bytes))      # UNKNOWN 23
 
   # 7 clickie/focus effects/worn/etc
   for ecount in range(7):
@@ -235,12 +236,11 @@ def readItem(bytes):
     data.append(readUInt32(bytes))    # proc mod
     data.append(readString(bytes))    # name
     data.append(readInt32(bytes))     # not used?
-
   data.append(readInt32(bytes))       # right click script id
+
   data.append(readInt8(bytes))        # quest item
   data.append(readUInt32(bytes))      # power source cap
   data.append(readUInt32(bytes))      # purity
-  data.append(readInt8(bytes))        # epic
   data.append(readUInt32(bytes))      # backstab damage
 
   for heroic in ['str', 'int', 'wis', 'agi', 'dex', 'sta', 'cha']:
@@ -251,33 +251,33 @@ def readItem(bytes):
 
   # some clickie type field
   # 2 = cure pot, 5 = celestial heal pot, 7 = dragon magic, 17 = fast mounts
-  data.append(readInt8(bytes))        # UNKNOWN 9
+  data.append(readInt8(bytes))        # UNKNOWN 24
 
-  data.append(readUInt32(bytes))      # UNKNOWN 10
-  data.append(readUInt32(bytes))      # UNKNOWN 11
+  data.append(readUInt32(bytes))      # UNKNOWN 25
+  data.append(readUInt32(bytes))      # UNKNOWN 26
   data.append(readInt8(bytes))        # heirloom
   data.append(readInt8(bytes))        # placeable
 
   for unknown in range(7):
-    data.append(readUInt32(bytes))    # UNKNOWN 12 to 18
+    data.append(readUInt32(bytes))    # UNKNOWN 27 to 33
 
   data.append(readString(bytes))      # placeable npc name
 
   for unknown in range(7):
-    data.append(readUInt32(bytes))    # UNKNOWN 19 to 25
+    data.append(readUInt32(bytes))    # UNKNOWN 34 to 40
 
   for misc in ['collectable', 'nodestroy', 'nonpc', 'nozone']:
     data.append(readInt8(bytes))
 
   for unknown in range(4):
-    data.append(readUInt8(bytes))      # UNKNOWN 26 to 29
+    data.append(readUInt8(bytes))      # UNKNOWN 41 to 44
 
-  for misc in ['noground', 'UNKNOWN 30', 'marketplace', 'freestorage']:
+  for misc in ['noground', 'UNKNOWN 45', 'marketplace', 'freestorage']:
     data.append(readInt8(bytes))
 
-  data.append(readUInt8(bytes))        # UNKNOWN 31
-  data.append(readUInt32(bytes))       # UNKNOWN 32
-  data.append(readUInt32(bytes))       # UNKNOWN 33
+  data.append(readUInt8(bytes))        # UNKNOWN 46
+  data.append(readUInt32(bytes))       # UNKNOWN 47
+  data.append(readUInt32(bytes))       # UNKNOWN 48
 
   data.append(readInt32(bytes))        # min luck
   data.append(readInt32(bytes))        # max luck
@@ -304,7 +304,8 @@ def readItem(bytes):
   IdNameCache[data[5]] = data[1]
 
   # charm file cache
-  CharmCache[data[72]] = ''
+  if data[71]:
+    CharmCache[data[71]] = ''
   return data
 
 # instead of relying on opcodes look for 16 character printable strings that seem to go along
@@ -440,8 +441,8 @@ def saveData():
         combined[id][-1] = MadeBy[id]
       if id in ExtraInfo:
         combined[id][-2] = ExtraInfo[id]
-      if combined[id][72] and combined[id][72] in CharmCache:
-        combined[id][-2] = CharmCache[combined[id][72]]
+      if combined[id][71] and combined[id][71] in CharmCache:
+        combined[id][-2] = CharmCache[combined[id][71]]
       file.write('|'.join(str(s) for s in combined[id]))
       file.write('\n')
 
