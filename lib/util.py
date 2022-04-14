@@ -47,7 +47,7 @@ def readBytes(buffer, count):
 def readFloat32(buffer):
   value = buffer[0:4]
   del buffer[0:4]
-  return struct.unpack('<f', value)[0]
+  return float(('%.6f' % struct.unpack('<f', value)[0]).rstrip('0').rstrip('.'))
 
 def readInt8(buffer):
   value = buffer[0:1]
