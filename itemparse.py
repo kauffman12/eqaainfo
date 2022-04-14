@@ -323,7 +323,7 @@ def handleEQPacket(opcode, bytes, timeStamp, clientToServer):
       id = readUInt32(bytes)
       code = readUInt32(bytes)
       # madeby
-      if code < 32:
+      if code < 64:
         nameLen = readUInt32(bytes)
         if nameLen > 0:
           name = readString(bytes)
