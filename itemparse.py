@@ -254,7 +254,7 @@ def readItem(bytes):
   data.append(readUInt32(bytes))      # UNKNOWN 25
   data.append(readUInt32(bytes))      # UNKNOWN 26
   data.append(readInt8(bytes))        # heirloom
-  data.append(readInt8(bytes))        # placeable
+  data.append(readUInt8(bytes))       # placeable
 
   for unknown in range(7):
     data.append(readUInt32(bytes))    # UNKNOWN 27 to 33
