@@ -279,7 +279,7 @@ def readItem(bytes):
 
   data.append(readInt32(bytes))        # min luck
   data.append(readInt32(bytes))        # max luck
-  data.append(readInt8(bytes))         # lore equipped
+  data.append(readInt32(bytes))        # lore equipped
 
   # add evolving related fields
   data.append(evolvable)
@@ -332,7 +332,7 @@ def handleEQPacket(opcode, bytes, timeStamp, clientToServer):
               # use this to know a madeby request has been made
               ExtraInfoOpCode = opcode
               ExtraInfo[id] = ''
-  else:  
+  else:
     if opcode == CharmCacheOpCode and len(bytes) > 22 and len(CharmFileNext) > 0:
       code = readInt32(bytes)
       space = readInt32(bytes)
