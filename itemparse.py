@@ -17,7 +17,8 @@ from lib.eqreader import *
 
 Columns = []
 ColumnsFile = 'columns.txt'
-DateTimeFormat = '%d%m%y%H%M%S'
+TimeRangeFormat = '%d%m%y%H%M%S'
+UpdateTimeFormat = '%Y-%m-%d %H:%M:%S'
 OutputFile = 'items'
 ExtraInfo = dict()
 ExtraInfoOpCode = -1
@@ -29,6 +30,7 @@ ItemData = dict()
 MadeBy = dict()
 ReadingFile = False
 StartTime = ''
+UpdateTime = dict()
 
 class ParseError (Exception):
   pass
@@ -270,6 +272,7 @@ def readItem(bytes):
   for unknown in range(4):
     data.append(readUInt8(bytes))      # UNKNOWN 41 to 44
 
+  # unk45 is always zero?
   for misc in ['noground', 'UNKNOWN 45', 'marketplace', 'freestorage']:
     data.append(readInt8(bytes))
 
@@ -296,6 +299,9 @@ def readItem(bytes):
   data.append('')
 
   # add default value for madeby field
+  data.append('')
+
+  # add default value for update time
   data.append('')
 
   # cache id and names for testing requests
@@ -360,6 +366,7 @@ def handleEQPacket(opcode, bytes, timeStamp, clientToServer):
             sp3 = readUInt8(remain)
             if sp == 0 and one == 1 and sp2 == 0 and sp3 == 0 and not len(remain):
               MadeBy[id] = name
+              UpdateTime[id] = datetime.now()
               if not ReadingFile:
                 print('Update item %d is made by %s' % (id, name))
         # maybe its item info with id in packet
@@ -369,6 +376,7 @@ def handleEQPacket(opcode, bytes, timeStamp, clientToServer):
             desc = readString(bytes[14:])
             if len(desc) == (descLen + 1):
               ExtraInfo[id] = desc[:-1]
+              UpdateTime[id] = datetime.now()
               if not ReadingFile:
                 print('Update %d description: %s' % (id, ExtraInfo[id]))
     else:
@@ -401,6 +409,7 @@ def handleEQPacket(opcode, bytes, timeStamp, clientToServer):
                 # up from more than one
                 if not opcode in ItemData: ItemData[opcode] = dict()
                 ItemData[opcode][data[5]] = data
+                UpdateTime[data[5]] = datetime.now()
                 if not ReadingFile:
                   print('Read Item: %s (%d)' % (data[1], data[5]))
           except ParseError:
@@ -413,7 +422,7 @@ def saveData():
   global CharmCache, ItemData, ExtraInfo, StartTime
 
   if len(ItemData) > 0:
-    endTime = datetime.now().strftime(DateTimeFormat)
+    endTime = datetime.now().strftime(TimeRangeFormat)
     if ReadingFile:
       fileName = ('%s.txt' % OutputFile)
     else:
@@ -422,8 +431,6 @@ def saveData():
     file.write('|'.join(str(s) for s in Columns))
     file.write('\n')
 
-    # only save the two most used opcodes since they're most likely
-    # the correct ones
     counts = []
     for key in ItemData:
       counts.append({ 'opcode': key, 'count': len(ItemData[key]) })
@@ -442,6 +449,7 @@ def saveData():
       if combined[id][71] and combined[id][71] in CharmCache:
         combined[id][-2] = CharmCache[combined[id][71]]
       file.write('|'.join(str(s) for s in combined[id]))
+      file.write('|%s' % UpdateTime[id].strftime(UpdateTimeFormat))
       file.write('\n')
 
     file.close()
@@ -465,7 +473,7 @@ def main(args):
     print ('Usage: ' + args[0] + ' -capture | -file <pcap file>')
   else:
     try:
-      StartTime = datetime.now().strftime(DateTimeFormat)
+      StartTime = datetime.now().strftime(TimeRangeFormat)
       file = open(ColumnsFile, 'r')
       for line in file: Columns.append(line.strip()) 
 
