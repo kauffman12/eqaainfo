@@ -30,6 +30,7 @@ ItemData = dict()
 MadeBy = dict()
 ReadingFile = False
 StartTime = ''
+SortByTime = True
 UpdateTime = dict()
 
 class ParseError (Exception):
@@ -295,6 +296,9 @@ def readItem(bytes):
   data.append(convertToId)
   data.append(convertToName)
 
+  # add default value for charm text 
+  data.append('')
+
   # add default value for extra item info
   data.append('')
 
@@ -344,11 +348,11 @@ def handleEQPacket(opcode, bytes, timeStamp, clientToServer):
       space = readInt32(bytes)
       space2 = readInt16(bytes)
       if (code == 0 or code == 1) and space == -1 and space2 == -1:
-        extra = readString(bytes[12:])
-        if extra and len(extra) > 1 and CharmFileNext in CharmCache:
-          CharmCache[CharmFileNext] = extra
+        chrmtxt = readString(bytes[12:])
+        if chrmtxt and len(chrmtxt) > 1 and CharmFileNext in CharmCache and CharmCache[CharmFileNext] != chrmtxt:
+          CharmCache[CharmFileNext] = chrmtxt 
           if not ReadingFile:
-            print('Update %s description: %s' % (CharmFileNext, extra))
+            print('Update charmtext %s to %s' % (CharmFileNext, chrmtxt))
     # item info opcode
     elif opcode == ExtraInfoOpCode and len(bytes) > 9:
       id = readUInt32(bytes[0:4])
@@ -365,20 +369,21 @@ def handleEQPacket(opcode, bytes, timeStamp, clientToServer):
             sp2 = readUInt32(remain)
             sp3 = readUInt8(remain)
             if sp == 0 and one == 1 and sp2 == 0 and sp3 == 0 and not len(remain):
-              MadeBy[id] = name
-              UpdateTime[id] = datetime.now()
-              if not ReadingFile:
-                print('Update item %d is made by %s' % (id, name))
+              if (id not in MadeBy) or (MadeBy[id] != name):
+                MadeBy[id] = name
+                UpdateTime[id] = datetime.fromtimestamp(int(timeStamp))
+                if not ReadingFile:
+                  print('Update item %d as made by %s' % (id, name))
         # maybe its item info with id in packet
         elif sp == 0 and nameLen == 0:
           descLen = readUInt32(bytes[10:14])
           if descLen > 0:
             desc = readString(bytes[14:])
-            if len(desc) == (descLen + 1):
+            if len(desc) == (descLen + 1) and (id not in ExtraInfo or ExtraInfo[id] != desc[:-1]):
               ExtraInfo[id] = desc[:-1]
-              UpdateTime[id] = datetime.now()
+              UpdateTime[id] = datetime.fromtimestamp(int(timeStamp))
               if not ReadingFile:
-                print('Update %d description: %s' % (id, ExtraInfo[id]))
+                print('Update item %d with extratxt: %s' % (id, ExtraInfo[id]))
     else:
       while len(bytes) > 800:
         strSearch = 0
@@ -407,11 +412,11 @@ def handleEQPacket(opcode, bytes, timeStamp, clientToServer):
               if data and (len(data) == len(Columns)):
                 # save by opcode incase we want to compare items that show
                 # up from more than one
-                if not opcode in ItemData: ItemData[opcode] = dict()
-                ItemData[opcode][data[5]] = data
-                UpdateTime[data[5]] = datetime.now()
-                if not ReadingFile:
-                  print('Read Item: %s (%d)' % (data[1], data[5]))
+                if data[5] not in ItemData:
+                  ItemData[data[5]] = data
+                  UpdateTime[data[5]] = datetime.fromtimestamp(int(timeStamp))
+                  if not ReadingFile:
+                    print('Read Item: %s (%d)' % (data[1], data[5]))
           except ParseError:
             pass
           except:
@@ -419,7 +424,7 @@ def handleEQPacket(opcode, bytes, timeStamp, clientToServer):
             pass
 
 def saveData():
-  global CharmCache, ItemData, ExtraInfo, StartTime
+  global CharmCache, ItemData, ExtraInfo, StartTime, SortByTime
 
   if len(ItemData) > 0:
     endTime = datetime.now().strftime(TimeRangeFormat)
@@ -431,29 +436,26 @@ def saveData():
     file.write('|'.join(str(s) for s in Columns))
     file.write('\n')
 
-    counts = []
-    for key in ItemData:
-      counts.append({ 'opcode': key, 'count': len(ItemData[key]) })
-
-    combined = dict()
-    for item in sorted(counts, reverse=True, key=lambda item: item['count']):
-      for id in ItemData[item['opcode']]:
-        combined[id] = ItemData[item['opcode']][id]
- 
-    for id in sorted(combined.keys()):
-      # update MadeBy if needed
+    for id in ItemData:
       if id in MadeBy:
-        combined[id][-1] = MadeBy[id]
+        ItemData[id][-2] = MadeBy[id]
       if id in ExtraInfo:
-        combined[id][-2] = ExtraInfo[id]
-      if combined[id][71] and combined[id][71] in CharmCache:
-        combined[id][-2] = CharmCache[combined[id][71]]
-      file.write('|'.join(str(s) for s in combined[id]))
-      file.write('|%s' % UpdateTime[id].strftime(UpdateTimeFormat))
+        ItemData[id][-3] = ExtraInfo[id]
+      if ItemData[id][71] and ItemData[id][71] in CharmCache:
+        ItemData[id][-4] = CharmCache[ItemData[id][71]]
+          
+    if SortByTime:
+      sort = sorted(UpdateTime, key=UpdateTime.get)
+    else:
+      sort = sorted(ItemData.keys())
+
+    for id in sort:
+      file.write('|'.join(str(s) for s in ItemData[id]))
+      file.write('%s' % UpdateTime[id].strftime(UpdateTimeFormat))
       file.write('\n')
 
     file.close()
-    print('Saved %d items to %s' % (len(combined), fileName), flush=True)
+    print('Saved %d items to %s' % (len(ItemData), fileName), flush=True)
   else:
     print('No item data found. Format change?', flush=True)
   exit(1)
@@ -466,11 +468,17 @@ def packet_callback(packet):
     except Exception as error:
       print(error, flush=True)
 
+def printSortType():
+  if SortByTime:
+    print('Sorting Output by Time', flush=True)
+  else:
+    print('Sorting Output by ID', flush=True)
+
 def main(args):
-  global ReadingFile, StartTime
+  global ReadingFile, StartTime, SortByTime
 
   if (len(args) < 2):
-    print ('Usage: ' + args[0] + ' -capture | -file <pcap file>')
+    print ('Usage: ' + args[0] + '-capture | -file <pcap file> [-sort id]')
   else:
     try:
       StartTime = datetime.now().strftime(TimeRangeFormat)
@@ -478,17 +486,23 @@ def main(args):
       for line in file: Columns.append(line.strip()) 
 
       if '-capture' == args[1]:
+        if len(args) == 4 and args[2] == '-sort' and args[3] == 'id':
+          SortByTime = False
+        printSortType()
         ReadingFile = False
         signal.signal(signal.SIGINT, lambda signum, frame: saveData())
         print('Waiting for data. You may need to zone. (Ctrl+C to Save/Exit)', flush=True)
         sniff(filter="udp and (src net 69.174 or dst net 69.174)", timeout=None, prn=packet_callback, store=0)
       elif '-file' == args[1]:
+        if len(args) == 5 and args[3] == '-sort' and args[4] == 'id':
+          SortByTime = False
+        printSortType()
         ReadingFile = True
         print('Reading %s' % args[2])
         readPcap(handleEQPacket, args[2])
         saveData()
       else:
-        print('Illegal Argument', flush=True)
+        print ('Usage: ' + args[0] + '-capture | -file <pcap file> [-sort id]', flush=True)
     except Exception as error:
       print(error, flush=True)
 
