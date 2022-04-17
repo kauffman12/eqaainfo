@@ -276,4 +276,6 @@ convertitem
 convertid
 convertname
 charmtext
+charmtext2
 madeby
+updatetime
