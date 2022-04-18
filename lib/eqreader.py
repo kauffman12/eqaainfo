@@ -9,10 +9,22 @@ from lib.util import *
 ClientToServer = 0
 ServerToClient = 1
 UnknownDirection = 2
-Fragments = []
-FragmentSeq = -1
-FragmentedPacketSize = 0
-LastSeq = -1
+
+def resetFragment(frag):
+  frag['data'] = []
+  frag['last'] = -1
+  frag['seq'] = -1
+  frag['size'] = 0
+  return frag
+
+ServerFragmentData = resetFragment(dict())
+ClientFragmentData = resetFragment(dict())
+
+def getFragmentData(direction):
+  global ServerFragmentData, ClientFragmentData
+  if direction == ClientToServer:
+    return ClientFragmentData
+  return ServerFragmentData
 
 def uncompress(bytes, isSubPacket, removeEnd):
   if (not isSubPacket and bytes[0] == 0x5a):
@@ -51,7 +63,7 @@ def findAppPacket(callback, uncompressed, timeStamp, clientToServer):
     callback(code, uncompressed, timeStamp, clientToServer)
 
 def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, isSubPacket):
-  global CryptoFlag, FragmentSeq, Fragments, FragmentedPacketSize, LastSeq
+  global CryptoFlag
   opcode = readBUInt16(bytes)
 
   direction = getDirection(srcIP, dstIP, srcPort, dstPort)
@@ -94,30 +106,31 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
     elif (opcode == 0x0d):
       uncompressed = uncompress(bytes, isSubPacket, True)
       seq = readBUInt16(uncompressed)
-      if (FragmentSeq == -1):
-        FragmentedPacketSize = readBUInt32(uncompressed)
+      frag = getFragmentData(direction)
+      if (frag['seq'] == -1):
+        frag['size'] = readBUInt32(uncompressed)
         size = len(uncompressed)
-        if (FragmentedPacketSize == 0 or FragmentedPacketSize > 2000000):
-          raise StopIteration('Debug: received fragmented of size %d, discarding' % FragmentedPacketSize)
+        if (frag['size'] == 0 or frag['size'] > 2000000):
+          raise StopIteration('Debug: received fragmented of size %d, discarding' % frag['size'])
         else:
-          if (size > FragmentedPacketSize):
-            raise TypeError('Error: mangled fragment %d to %d' % (size, FragmentedPacketSize))
-          FragmentSeq = seq
-          Fragments = uncompressed
+          if (size > frag['size']):
+            raise TypeError('Error: mangled fragment %d to %d' % (size, frag['size']))
+          frag['seq'] = seq
+          frag['data'] = uncompressed
           # +4 to account for packet size read in current fragment
           # assuming a standrd length for fragments within a sequence
-          LastSeq = int(FragmentedPacketSize / (size + 4)) + FragmentSeq
+          frag['last'] = int(frag['size'] / (size + 4)) + frag['seq']
       else:
-        if (seq <= LastSeq):
-          Fragments += uncompressed
-          FragmentSeq += 1
+        if (seq <= frag['last']):
+          frag['data'] += uncompressed
+          frag['seq'] += 1
         # no issues
-        if ((len(Fragments) == FragmentedPacketSize and FragmentSeq <= LastSeq)):
-          findAppPacket(callback, Fragments, timeStamp, direction == ClientToServer)
-          FragmentSeq = -1
-        elif (seq > LastSeq): # sequence skipped too far ahead
-          #print('Warning: data missing from sequence ending %d' % LastSeq)
-          FragmentSeq = -1
+        if ((len(frag['data']) == frag['size'] or frag['seq'] == frag['last'])):
+          findAppPacket(callback, frag['data'], timeStamp, direction == ClientToServer)
+          resetFragment(frag)
+        elif (seq > frag['seq']): # sequence skipped too far ahead
+          #print('Warning: data missing from sequence ending %d' % frag['last'])
+          resetFragment(frag)
           replayPacket = bytearray(opcode.to_bytes(2, 'big')) + bytes
           processPacket(callback, srcIP, dstIP, srcPort, dstPort, replayPacket, timeStamp, isSubPacket)      
   except TypeError as error:
