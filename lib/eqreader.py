@@ -113,7 +113,6 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
 
         # if size didn't parse correct then it's probably out of order
         if (frag['size'] == 0) or (frag['size'] > 2000000) or (size > frag['size']):
-          print(frag['size'])
           frag['data'][seq] = uncompressed
           raise TypeError('out of order')
 
