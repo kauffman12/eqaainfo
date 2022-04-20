@@ -11,7 +11,7 @@ ServerToClient = 1
 UnknownDirection = 2
 
 def resetFragment(frag):
-  frag['data'] = []
+  frag['data'] = dict()
   frag['last'] = -1
   frag['seq'] = -1
   frag['size'] = 0
@@ -110,33 +110,41 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
       if (frag['seq'] == -1):
         frag['size'] = readBUInt32(uncompressed)
         size = len(uncompressed)
-        if (frag['size'] == 0 or frag['size'] > 2000000):
-          raise StopIteration('Debug: received fragmented of size %d, discarding' % frag['size'])
-        else:
-          if (size > frag['size']):
-            raise TypeError('Error: mangled fragment %d to %d' % (size, frag['size']))
-          frag['seq'] = seq
-          frag['data'] = uncompressed
-          # +4 to account for packet size read in current fragment
-          # assuming a standrd length for fragments within a sequence
-          frag['last'] = int(frag['size'] / (size + 4)) + frag['seq']
+
+        # if size didn't parse correct then it's probably out of order
+        if (frag['size'] == 0) or (frag['size'] > 2000000) or (size > frag['size']):
+          print(frag['size'])
+          frag['data'][seq] = uncompressed
+          raise TypeError('out of order')
+
+        frag['seq'] = seq
+        frag['data'][seq] = uncompressed
+        # +4 to account for packet size read in current fragment
+        # assuming a standrd length for fragments within a sequence
+        frag['last'] = int(frag['size'] / (size + 4)) + frag['seq']
       else:
-        if (seq <= frag['last']):
-          frag['data'] += uncompressed
-          frag['seq'] += 1
-        # no issues
-        if ((len(frag['data']) == frag['size'] or frag['seq'] == frag['last'])):
-          findAppPacket(callback, frag['data'], timeStamp, direction == ClientToServer)
+        # keep saving fragments 
+        if seq <= frag['last']:
+          frag['data'][seq] = uncompressed
+
+        total = (frag['last'] - frag['seq']) + 1
+        if len(frag['data']) == total:
+          data = bytearray([])
+          order = sorted(frag['data'].keys())
+          current = order[0]
+          error = False
+          for key in order:
+            if current != key:
+              error = True
+              break
+            data += frag['data'][key]
+            current += 1
+
+          if not error and len(data) == frag['size']:
+            findAppPacket(callback, data, timeStamp, direction == ClientToServer)
           resetFragment(frag)
-        elif (seq > frag['seq']): # sequence skipped too far ahead
-          #print('Warning: data missing from sequence ending %d' % frag['last'])
-          resetFragment(frag)
-          replayPacket = bytearray(opcode.to_bytes(2, 'big')) + bytes
-          processPacket(callback, srcIP, dstIP, srcPort, dstPort, replayPacket, timeStamp, isSubPacket)      
   except TypeError as error:
-    print(error)
-  except StopIteration as stopInfo:
-    pass #print(stopInfo)
+    pass
   except Exception as other:  
     print(other) #traceback.print_exc()
 
