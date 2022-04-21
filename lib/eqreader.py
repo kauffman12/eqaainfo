@@ -9,6 +9,8 @@ from lib.util import *
 ClientToServer = 0
 ServerToClient = 1
 UnknownDirection = 2
+ServerFragmentData = dict()
+ClientFragmentData = dict()
 
 def resetFragment(frag):
   frag['data'] = dict()
@@ -16,9 +18,6 @@ def resetFragment(frag):
   frag['seq'] = -1
   frag['size'] = 0
   return frag
-
-ServerFragmentData = resetFragment(dict())
-ClientFragmentData = resetFragment(dict())
 
 def getFragmentData(direction):
   global ServerFragmentData, ClientFragmentData
@@ -86,6 +85,8 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
       ClientPort = srcPort
       ServerIP = dstIP
       ServerPort = dstPort
+      resetFragment(ServerFragmentData)
+      resetFragment(ClientFragmentData)
 
     # Session Response
     elif (opcode == 0x02):
