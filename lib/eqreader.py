@@ -110,21 +110,19 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
       if (frag['seq'] == -1):
         frag['size'] = readBUInt32(uncompressed)
         size = len(uncompressed)
-
-        # if size didn't parse correct then it's probably out of order
-        if (frag['size'] == 0) or (frag['size'] > 2000000) or (size > frag['size']):
-          frag['data'][seq] = uncompressed
-          raise TypeError('out of order')
-
         frag['seq'] = seq
         frag['data'][seq] = uncompressed
         # +4 to account for packet size read in current fragment
         # assuming a standrd length for fragments within a sequence
         frag['last'] = int(frag['size'] / (size + 4)) + frag['seq']
+        # if sequence of 1 just handle it
+        if frag['last'] == seq:
+          if len(uncompressed) > 0:
+            findAppPacket(callback, uncompressed, timeStamp, direction == ClientToServer)
+          resetFragment(frag)
       else:
         # keep saving fragments 
-        if seq <= frag['last']:
-          frag['data'][seq] = uncompressed
+        frag['data'][seq] = uncompressed
 
         total = (frag['last'] - frag['seq']) + 1
         if len(frag['data']) == total:
@@ -139,8 +137,9 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
             data += frag['data'][key]
             current += 1
 
-          if not error and len(data) == frag['size']:
+          if not error:
             findAppPacket(callback, data, timeStamp, direction == ClientToServer)
+
           resetFragment(frag)
   except TypeError as error:
     pass
