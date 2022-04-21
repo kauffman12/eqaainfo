@@ -58,9 +58,11 @@ def findAppPacket(callback, uncompressed, timeStamp, clientToServer):
         size = readBytes(uncompressed, 1)[0]
       newPacket = readBytes(uncompressed, size)
       appOpcode = readUInt16(newPacket)
-      callback(appOpcode, newPacket, timeStamp, clientToServer)
+      if len(newPacket) > 0:
+        callback(appOpcode, newPacket, timeStamp, clientToServer)
   else:
-    callback(code, uncompressed, timeStamp, clientToServer)
+    if len(uncompressed) > 0:
+      callback(code, uncompressed, timeStamp, clientToServer)
 
 def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, isSubPacket):
   global CryptoFlag
@@ -141,8 +143,6 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
             findAppPacket(callback, data, timeStamp, direction == ClientToServer)
 
           resetFragment(frag)
-  except TypeError as error:
-    pass
   except Exception as other:  
     print(other) #traceback.print_exc()
 

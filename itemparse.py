@@ -24,7 +24,7 @@ ExtraInfo = dict()
 ExtraInfoOpCode = -1
 CharmCache = dict()
 CharmCacheOpCode = -1
-CharmFileNext = ''
+CharmFileList = []
 IdNameCache = dict()
 ItemData = dict()
 MadeBy = dict()
@@ -319,7 +319,7 @@ def readItem(bytes):
 # instead of relying on opcodes look for 16 character printable strings that seem to go along
 # with each item entry and try to parse them
 def handleEQPacket(opcode, bytes, timeStamp, clientToServer):
-  global ItemData, IdNameCache, MadeBy, ReadingFile, ExtraInfo, ExtraInfoOpCode, CharmCache, CharmCacheOpCode, CharmFileNext
+  global ItemData, IdNameCache, MadeBy, ReadingFile, ExtraInfo, ExtraInfoOpCode, CharmCache, CharmCacheOpCode, CharmFileList
 
   if clientToServer:
     handled = False
@@ -328,7 +328,7 @@ def handleEQPacket(opcode, bytes, timeStamp, clientToServer):
       if charmFile and charmFile in CharmCache:
         CharmCacheOpCode = opcode 
         handled = True
-        CharmFileNext = charmFile
+        CharmFileList.append(charmFile)
     if not handled and len(bytes) > 9:
       id = readUInt32(bytes)
       code = readUInt32(bytes)
@@ -343,16 +343,22 @@ def handleEQPacket(opcode, bytes, timeStamp, clientToServer):
               ExtraInfoOpCode = opcode
               ExtraInfo[id] = ''
   else:
-    if opcode == CharmCacheOpCode and len(bytes) > 22 and len(CharmFileNext) > 0:
+    if opcode == CharmCacheOpCode:
+      if len(CharmFileList) > 0:
+        charmFileNext = CharmFileList.pop(0)
+      else:
+        charmFileNext = ''
+
+    if opcode == CharmCacheOpCode and len(bytes) > 20 and len(charmFileNext) > 0:
       code = readInt32(bytes)
       space = readInt32(bytes)
       space2 = readInt16(bytes)
-      if (code == 0 or code == 1) and space == -1 and space2 == -1:
+      if (code >= 0 and code <= 5) and space == -1 and space2 == -1:
         chrmtxt = readString(bytes[12:])
-        if chrmtxt and len(chrmtxt) > 1 and CharmFileNext in CharmCache and CharmCache[CharmFileNext] != chrmtxt:
-          CharmCache[CharmFileNext] = chrmtxt 
+        if chrmtxt and len(chrmtxt) > 1 and charmFileNext in CharmCache and CharmCache[charmFileNext] != chrmtxt:
+          CharmCache[charmFileNext] = chrmtxt 
           if not ReadingFile:
-            print('Update charmtext %s to %s' % (CharmFileNext, chrmtxt))
+            print('Update charmtext %s to %s' % (charmFileNext, chrmtxt))
     # item info opcode
     elif opcode == ExtraInfoOpCode and len(bytes) > 9:
       id = readUInt32(bytes[0:4])
@@ -418,6 +424,7 @@ def handleEQPacket(opcode, bytes, timeStamp, clientToServer):
                   if not ReadingFile:
                     print('Read Item: %s (%d)' % (data[1], data[5]))
           except ParseError:
+            #traceback.print_exc()
             pass
           except:
             traceback.print_exc()
