@@ -108,16 +108,14 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
       seq = readBUInt16(uncompressed)
       frag = getFragmentData(direction)
       if (frag['seq'] == -1):
-        # dont modify the data until we're sure
-        test = readBUInt32(uncompressed[0:4])
-        size = len(uncompressed) - 4
+        frag['size'] = readBUInt32(uncompressed)
+        size = len(uncompressed)
 
         # if size didn't parse correct then it's probably out of order
-        if (test == 0) or (test > 2000000) or (size > test):
+        if (frag['size'] == 0) or (frag['size'] > 2000000) or (size > frag['size']):
           frag['data'][seq] = uncompressed
           raise TypeError('out of order')
 
-        frag['size'] = readBUInt32(uncompressed)
         frag['seq'] = seq
         frag['data'][seq] = uncompressed
         # +4 to account for packet size read in current fragment
