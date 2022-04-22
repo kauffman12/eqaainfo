@@ -145,6 +145,9 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
             findAppPacket(callback, uncompressed, timeStamp, direction)
           resetFragment(frag)
       else:
+        if seq > frag['last']:
+          print('received seq %d but last should be %d' % (seq, frag['last']))
+
         # keep saving fragments 
         frag['data'][seq] = uncompressed
 
@@ -163,7 +166,6 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
 
           if not error:
             findAppPacket(callback, data, timeStamp, direction)
-
           resetFragment(frag)
     else:
       if (opcode & 0xff00) != 0:
