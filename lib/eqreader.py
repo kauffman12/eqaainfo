@@ -6,11 +6,17 @@ import zlib
 from scapy.all import *
 from lib.util import *
 
+ClientIP = 0
+ClientPort = 0
+ServerIP = 0
+ServerPort = 0
 ClientToServer = 0
 ServerToClient = 1
 UnknownDirection = 2
 ServerFragmentData = dict()
 ClientFragmentData = dict()
+MaxLength = 512
+SessionId = 0
 
 def resetFragment(frag):
   frag['data'] = dict()
@@ -37,20 +43,21 @@ def uncompress(bytes, isSubPacket, removeEnd):
   return uncompressed
 
 def getDirection(srcIP, dstIP, srcPort, dstPort):
+  global ClientIP, ClientPort, ServerIP, ServerPort
   direction = UnknownDirection
-  if ('ServerIP' in globals() and 'ClientIP' in globals()):
-    if (srcIP == ServerIP and srcPort == ServerPort and dstIP == ClientIP and dstPort == ClientPort):
-      direction = ServerToClient
-    elif (srcIP == ClientIP and srcPort == ClientPort and dstIP == ServerIP and dstPort == ServerPort):
-      direction = ClientToServer
+  if srcIP != 0 and srcIP == ServerIP and srcPort == ServerPort and dstIP == ClientIP and dstPort == ClientPort:
+    direction = ServerToClient
+  elif srcIP != 0 and srcIP == ClientIP and srcPort == ClientPort and dstIP == ServerIP and dstPort == ServerPort:
+    direction = ClientToServer
   return direction
 
-def findAppPacket(callback, uncompressed, timeStamp, clientToServer):
-  code = readUInt16(uncompressed)
+def findAppPacket(callback, uncompressed, timeStamp, direction):
+  global ClientToServer
 
-  if (code == 0x1900):
-    while (len(uncompressed) > 3):
-      if (uncompressed[0] == 0xff):
+  clientToServer = (direction == ClientToServer)
+  if readUInt16(uncompressed) == 0x1900:
+    while len(uncompressed) > 3:
+      if uncompressed[0] == 0xff:
         readBytes(uncompressed, 1)
         size = readBUInt16(uncompressed)
       else:
@@ -64,49 +71,63 @@ def findAppPacket(callback, uncompressed, timeStamp, clientToServer):
       callback(code, uncompressed, timeStamp, clientToServer)
 
 def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, isSubPacket):
-  global CryptoFlag
-  opcode = readBUInt16(bytes)
-
-  direction = getDirection(srcIP, dstIP, srcPort, dstPort)
-  #if ((direction == UnknownDirection and opcode != 0x01) or (direction == ClientToServer and opcode != 0x02)):
-  if ((direction == UnknownDirection and opcode != 0x01)):
+  global MaxLength, ClientIP, ClientPort, ServerIP, ServerPort, SessionId
+  if len(bytes) > MaxLength:
     return
 
-  # Check if this is a UCS connection and if so, skip packets until we see another Session Request
-  if (opcode != 0x01 and 'CryptoFlag' in globals() and (CryptoFlag & 4) > 0):
+  opcode = readBUInt16(bytes)
+  direction = getDirection(srcIP, dstIP, srcPort, dstPort)
+
+  if direction == UnknownDirection and opcode not in [0x01, 0x02]:
     return
 
   try:
     # Session Request
-    if (opcode == 0x01):
-      global ClientIP, ClientPort, ServerIP, ServerPort
-      CryptoFlag = 0
-      ClientIP = srcIP
-      ClientPort = srcPort
-      ServerIP = dstIP
-      ServerPort = dstPort
-      resetFragment(ServerFragmentData)
-      resetFragment(ClientFragmentData)
+    if opcode == 0x01:
+      if len(bytes) == 22:
+        readBytes(bytes, 4)
+        SessionId = readBUInt32(bytes)
 
     # Session Response
-    elif (opcode == 0x02):
-      CryptoFlag = int.from_bytes(bytes[19:11], 'little', signed=False)
+    elif opcode == 0x02:
+      if len(bytes) == 19:
+        session = readBUInt32(bytes)
+        readBytes(bytes, 7)
+        maxLen = readBUInt32(bytes)
+        # should always be 512 but they could raise it
+        if session == SessionId and (maxLen >= 512 and maxLen <= 4096):
+          MaxLength = maxLen
+          ClientIP = dstIP
+          ClientPort = dstPort
+          ServerIP = srcIP
+          ServerPort = srcPort
+          resetFragment(ServerFragmentData)
+          resetFragment(ClientFragmentData)
+
+    # Disconnect
+    elif opcode == 0x05:
+      if len(bytes) == 9:
+        SessionId = 0
+        ClientIP = 0
+        ClientPort = 0
+        ServerIP = 0
+        ServerPort = 0
 
     # Combined 
-    elif (opcode == 0x03):
+    elif opcode == 0x03:
       uncompressed = uncompress(bytes, isSubPacket, False)
       while (len(uncompressed) > 2):
-        size = readBytes(uncompressed, 1)[0]
+        size = readUInt8(uncompressed)
         newPacket = readBytes(uncompressed, size)
         processPacket(callback, srcIP, dstIP, srcPort, dstPort, newPacket, timeStamp, True)
 
     # Packet
-    elif (opcode == 0x09):
+    elif opcode == 0x09:
       uncompressed = uncompress(bytes, isSubPacket, True)
-      findAppPacket(callback, uncompressed[2:], timeStamp, direction == ClientToServer) 
+      findAppPacket(callback, uncompressed[2:], timeStamp, direction) 
 
     # Fragment
-    elif (opcode == 0x0d):
+    elif opcode == 0x0d:
       uncompressed = uncompress(bytes, isSubPacket, True)
       seq = readBUInt16(uncompressed)
       frag = getFragmentData(direction)
@@ -121,7 +142,7 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
         # if sequence of 1 just handle it
         if frag['last'] == seq:
           if len(uncompressed) > 0:
-            findAppPacket(callback, uncompressed, timeStamp, direction == ClientToServer)
+            findAppPacket(callback, uncompressed, timeStamp, direction)
           resetFragment(frag)
       else:
         # keep saving fragments 
@@ -141,9 +162,13 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
             current += 1
 
           if not error:
-            findAppPacket(callback, data, timeStamp, direction == ClientToServer)
+            findAppPacket(callback, data, timeStamp, direction)
 
           resetFragment(frag)
+    else:
+      if (opcode & 0xff00) != 0:
+        pass # unhandled app opcodes
+
   except Exception as other:  
     print(other) #traceback.print_exc()
 
