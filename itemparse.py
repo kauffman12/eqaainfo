@@ -353,12 +353,14 @@ def handleEQPacket(opcode, bytes, timeStamp, clientToServer):
       code = readInt32(bytes)
       space = readInt32(bytes)
       space2 = readInt16(bytes)
-      if (code >= 0 and code <= 5) and space == -1 and space2 == -1:
+      if (code >= 0 and code <= 32) and space == -1 and space2 == -1:
         chrmtxt = readString(bytes[12:])
         if chrmtxt and len(chrmtxt) > 1 and charmFileNext in CharmCache and CharmCache[charmFileNext] != chrmtxt:
           CharmCache[charmFileNext] = chrmtxt 
           if not ReadingFile:
             print('Update charmtext %s to %s' % (charmFileNext, chrmtxt))
+      else:
+        print('Error: code = %d' % code)
     # item info opcode
     elif opcode == ExtraInfoOpCode and len(bytes) > 9:
       id = readUInt32(bytes[0:4])
