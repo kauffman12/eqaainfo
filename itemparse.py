@@ -442,7 +442,7 @@ def saveData():
     else:
       fileName = ('%s%s+%s.txt' % (OutputFile, StartTime, endTime))
     file = open(fileName, 'w')
-    file.write('|'.join(str(s) for s in Columns))
+    file.write('^'.join(str(s) for s in Columns))
     file.write('\n')
 
     for id in ItemData:
@@ -459,7 +459,7 @@ def saveData():
       sort = sorted(ItemData.keys())
 
     for id in sort:
-      file.write('|'.join(str(s) for s in ItemData[id]))
+      file.write('^'.join(str(s) for s in ItemData[id]))
       file.write('%s' % UpdateTime[id].strftime(UpdateTimeFormat))
       file.write('\n')
 
