@@ -5,6 +5,7 @@
 #
 
 import io
+import json
 import signal
 import sys
 import traceback
@@ -15,6 +16,7 @@ from lib.util import *
 from lib.eqdata import *
 from lib.eqreader import *
 
+FORMAT = 'EQR'
 CharmCache = dict()
 ClientData = dict()
 Columns = []
@@ -444,18 +446,9 @@ def handleEQPacket(opcode, bytes, timeStamp, clientToServer, clientPort):
             pass
 
 def saveData():
-  global CharmCache, ItemData, ExtraInfo, StartTime, SortByTime
+  global Columns, CharmCache, ItemData, ExtraInfo, StartTime, SortByTime
 
   if len(ItemData) > 0:
-    endTime = datetime.now().strftime(TimeRangeFormat)
-    if ReadingFile:
-      fileName = ('%s.txt' % OutputFile)
-    else:
-      fileName = ('%s%s+%s.txt' % (OutputFile, StartTime, endTime))
-    file = open(fileName, 'w')
-    file.write('^'.join(str(s) for s in Columns))
-    file.write('\n')
-
     for id in ItemData:
       if id in MadeBy:
         ItemData[id][-2] = MadeBy[id]
@@ -463,19 +456,39 @@ def saveData():
         ItemData[id][-3] = ExtraInfo[id]
       if ItemData[id][71] and ItemData[id][71] in CharmCache:
         ItemData[id][-4] = CharmCache[ItemData[id][71]]
-          
     if SortByTime:
       sort = sorted(UpdateTime, key=UpdateTime.get)
     else:
       sort = sorted(ItemData.keys())
-
-    for id in sort:
-      file.write('^'.join(str(s) for s in ItemData[id]))
-      file.write('%s' % UpdateTime[id].strftime(UpdateTimeFormat))
+          
+    if FORMAT == 'EQR':
+      endTime = datetime.now().strftime(TimeRangeFormat)
+      if ReadingFile:
+        fileName = ('%s.txt' % OutputFile)
+      else:
+        fileName = ('%s%s+%s.txt' % (OutputFile, StartTime, endTime))
+      file = open(fileName, 'w')
+      file.write('^'.join(str(s) for s in Columns))
       file.write('\n')
+      for id in sort:
+        file.write('^'.join(str(s) for s in ItemData[id]))
+        file.write('%s' % UpdateTime[id].strftime(UpdateTimeFormat))
+        file.write('\n')
 
-    file.close()
-    print('Saved %d items to %s' % (len(ItemData), fileName), flush=True)
+      file.close()
+      print('Saved %d items to %s' % (len(ItemData), fileName), flush=True)
+    else:
+      fileName = ('%s.txt' % OutputFile)
+      file = open(fileName, 'w')
+      for id in sort:
+        row = dict()
+        for c in range(len(ItemData[id])):
+          if c > 0 and 'UNK' not in Columns[c]:
+            if ItemData[id][c] not in [-1, 0, '', 4278190080, 4294967295]:
+              row[Columns[c]] = ItemData[id][c]
+        json.dump(row, file)
+        file.write('\n')
+      file.close()
   else:
     print('No item data found. Format change?', flush=True)
   exit(1)
