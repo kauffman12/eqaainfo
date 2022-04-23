@@ -219,7 +219,7 @@ def findAAOpcode(opcode, bytes):
           start += 1
           end += 1
  
-def handleEQPacket(opcode, bytes, timeStamp, clientToServer):
+def handleEQPacket(opcode, bytes, timeStamp, clientToServer, clientPort):
   global AAData, AATableOpcode
 
   if clientToServer:

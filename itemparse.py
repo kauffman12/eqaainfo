@@ -15,26 +15,35 @@ from lib.util import *
 from lib.eqdata import *
 from lib.eqreader import *
 
+CharmCache = dict()
+ClientData = dict()
 Columns = []
 ColumnsFile = 'columns.txt'
-TimeRangeFormat = '%d%m%y%H%M%S'
-UpdateTimeFormat = '%Y-%m-%d %H:%M:%S'
-OutputFile = 'items'
 ExtraInfo = dict()
-ExtraInfoOpCode = -1
-CharmCache = dict()
-CharmCacheOpCode = -1
-CharmFileList = []
 IdNameCache = dict()
 ItemData = dict()
 MadeBy = dict()
+OutputFile = 'items'
 ReadingFile = False
-StartTime = ''
 SortByTime = True
+StartTime = ''
+TimeRangeFormat = '%d%m%y%H%M%S'
 UpdateTime = dict()
+UpdateTimeFormat = '%Y-%m-%d %H:%M:%S'
 
 class ParseError (Exception):
   pass
+
+def getClientData(port):
+  global ClientData
+  if port in ClientData:
+    return ClientData[port]
+
+  ClientData[port] = dict()
+  ClientData[port]['extraOpcode'] = -1
+  ClientData[port]['charmOpcode'] = -1
+  ClientData[port]['charmFiles'] = []
+  return ClientData[port]
 
 def readItem(bytes):
   global IdNameCache, CharmCache
@@ -312,23 +321,25 @@ def readItem(bytes):
   IdNameCache[data[5]] = data[1]
 
   # charm file cache
-  if data[71]:
+  if data[71] and data[71] not in CharmCache:
     CharmCache[data[71]] = ''
   return data
 
 # instead of relying on opcodes look for 16 character printable strings that seem to go along
 # with each item entry and try to parse them
-def handleEQPacket(opcode, bytes, timeStamp, clientToServer):
-  global ItemData, IdNameCache, MadeBy, ReadingFile, ExtraInfo, ExtraInfoOpCode, CharmCache, CharmCacheOpCode, CharmFileList
+def handleEQPacket(opcode, bytes, timeStamp, clientToServer, clientPort):
+  global ItemData, IdNameCache, MadeBy, ReadingFile, ExtraInfo, CharmCache
+
+  client = getClientData(clientPort)
 
   if clientToServer:
     handled = False
     if len(bytes) > 22:
       charmFile = readString(bytes[22:])
       if charmFile and charmFile in CharmCache:
-        CharmCacheOpCode = opcode 
         handled = True
-        CharmFileList.append(charmFile)
+        client['charmOpcode'] = opcode 
+        client['charmFiles'].append(charmFile)
     if not handled and len(bytes) > 9:
       id = readUInt32(bytes)
       code = readUInt32(bytes)
@@ -340,16 +351,16 @@ def handleEQPacket(opcode, bytes, timeStamp, clientToServer):
           if name and len(name) == nameLen and id in IdNameCache and IdNameCache[id] == name:
             if id not in ExtraInfo:
               # use this to know a madeby request has been made
-              ExtraInfoOpCode = opcode
+              client['extraOpcode'] = opcode
               ExtraInfo[id] = ''
   else:
-    if opcode == CharmCacheOpCode:
-      if len(CharmFileList) > 0:
-        charmFileNext = CharmFileList.pop(0)
+    if opcode == client['charmOpcode']:
+      if len(client['charmFiles']) > 0:
+        charmFileNext = client['charmFiles'].pop(0)
       else:
         charmFileNext = ''
 
-    if opcode == CharmCacheOpCode and len(bytes) > 20 and len(charmFileNext) > 0:
+    if opcode == client['charmOpcode'] and len(bytes) > 20 and len(charmFileNext) > 0:
       code = readInt32(bytes)
       space = readInt32(bytes)
       space2 = readInt16(bytes)
@@ -362,7 +373,7 @@ def handleEQPacket(opcode, bytes, timeStamp, clientToServer):
       else:
         print('Error: code = %d' % code)
     # item info opcode
-    elif opcode == ExtraInfoOpCode and len(bytes) > 9:
+    elif opcode == client['extraOpcode'] and len(bytes) > 9:
       id = readUInt32(bytes[0:4])
       if id > 0 and id in ExtraInfo:
         sp = readUInt16(bytes[4:6])
