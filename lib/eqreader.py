@@ -169,7 +169,6 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
     else:
       if (opcode & 0xff00) != 0:
         findAppPacket(callback, bytes, timeStamp, direction, clientPort)
-        pass # unhandled app opcodes
 
   except Exception as other:  
     print(other) # traceback.print_exc()
