@@ -24,13 +24,6 @@ def addClient(clientIP, clientPort, serverIP, serverPort, maxLength, session):
   Clients[clientPort]['session'] = session
   ServerIPList.append(serverIP)
 
-def resetFragment(frag):
-  frag['data'] = dict()
-  frag['last'] = -1
-  frag['seq'] = -1
-  frag['size'] = 0
-  return frag
-
 def getFragmentData(client, direction):
   if direction == ClientToServer:
     return client['clientFrags']
@@ -106,8 +99,8 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
         if dstPort in Clients and Clients[dstPort]['session'] == session:
           # max length should always be 512 but they could raise it
           addClient(dstIP, dstPort, srcIP, srcPort, maxLen, session)
-          resetFragment(getFragmentData(Clients[dstPort], ClientToServer))
-          resetFragment(getFragmentData(Clients[dstPort], ServerToClient))
+          getFragmentData(Clients[dstPort], ClientToServer)['data'] = dict()
+          getFragmentData(Clients[dstPort], ServerToClient)['data'] = dict()
 
     # Disconnect
     elif opcode == 0x05:
@@ -164,8 +157,18 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
 
         if found:
           findAppPacket(callback, data, timeStamp, direction, clientPort)
+          # there shouldn't be too many unhandled packets after
+          # a group has successfully been found
+          if len(frag['data']) > 5:
+            remaining = bytearray([])
+            for r in sorted(frag['data'].keys()):
+              remaining += frag['data']
+            findAppPacket(callback, remaining, timeStamp, direction, clientPort)
+            frag['data'] = dict()
+
     else:
       if (opcode & 0xff00) != 0:
+        findAppPacket(callback, bytes, timeStamp, direction, clientPort)
         pass # unhandled app opcodes
 
   except Exception as other:  
