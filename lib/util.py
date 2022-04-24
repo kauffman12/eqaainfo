@@ -21,14 +21,6 @@ def findIndexOf(bytes, data, size=4):
     end += 1
   return index
 
-def getByteString(bytes, count):
-  result = ''
-  c = 0
-  while c < len(bytes) and c < count:
-    result += '%d ' % bytes[c]
-    c += 1
-  return result
-
 def readBUInt16(buffer):
   value = buffer[0:2]
   del buffer[0:2]

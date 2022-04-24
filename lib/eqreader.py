@@ -1,6 +1,6 @@
 #
-# EQ Packet handling based on EQExtractor created by EQEMu Development Team
-# --> Copyright (C) 2001-2010 EQEMu Development Team (http://eqemulator.net). Distributed under GPL version 2.
+# EQ Packet handling. EQExtractor created by EQEMu Development Team used
+# as a reference but it's been completely reworked at this point.
 #
 import zlib
 from scapy.all import *
@@ -29,35 +29,35 @@ def getFragmentData(client, direction):
     return client['clientFrags']
   return client['serverFrags']
 
-def uncompress(bytes, isSubPacket, removeEnd):
+def uncompress(bytes, isSubPacket, isCombined):
   if (not isSubPacket and bytes[0] == 0x5a):
     uncompressed = bytearray(zlib.decompress(bytes[1:]))
   elif (not isSubPacket and bytes[0] == 0xa5):
     uncompressed = bytes[1:]
-    if (removeEnd):
+    if not isCombined:
       uncompressed = uncompressed[:-2]
   else:
-    uncompressed = bytes[0:]
+    uncompressed = bytes
   return uncompressed
 
-def findAppPacket(callback, uncompressed, timeStamp, direction, port):
+def findAppPacket(callback, bytes, timeStamp, direction, port):
   global ClientToServer
-  code = readUInt16(uncompressed)
+  appoc = readUInt16(bytes)
   clientToServer = (direction == ClientToServer)
-  if code == 0x1900:
-    while len(uncompressed) > 3:
-      if uncompressed[0] == 0xff:
-        readBytes(uncompressed, 1)
-        size = readBUInt16(uncompressed)
-      else:
-        size = readBytes(uncompressed, 1)[0]
-      newPacket = readBytes(uncompressed, size)
-      appOpcode = readUInt16(newPacket)
+  if appoc == 0x1900:
+    while len(bytes) > 3:
+      size = readUInt8(bytes)
+      if size == 0xff:
+        size = readBUInt16(bytes)
+      newPacket = readBytes(bytes, size)
+      appoc = readUInt16(newPacket)
+      if appoc == 0:
+        appoc = (readUInt8(newPacket) << 8)
       if len(newPacket) > 0:
-        callback(appOpcode, newPacket, timeStamp, clientToServer, port)
+        callback(appoc, newPacket, timeStamp, clientToServer, port)
   else:
-    if len(uncompressed) > 0:
-      callback(code, uncompressed, timeStamp, clientToServer, port)
+    if len(bytes) > 0:
+      callback(appoc, bytes, timeStamp, clientToServer, port)
 
 def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, isSubPacket):
   global Clients, ServerIPList, UnknownDirection
@@ -110,7 +110,7 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
 
     # Combined 
     elif opcode == 0x03:
-      uncompressed = uncompress(bytes, isSubPacket, False)
+      uncompressed = uncompress(bytes, isSubPacket, True)
       while (len(uncompressed) > 2):
         size = readUInt8(uncompressed)
         newPacket = readBytes(uncompressed, size)
@@ -119,7 +119,7 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
     # Packet
     elif opcode == 0x09:
       if client:
-        uncompressed = uncompress(bytes, isSubPacket, True)
+        uncompressed = uncompress(bytes, isSubPacket, False)
         seq = readBUInt16(uncompressed)
         findAppPacket(callback, uncompressed, timeStamp, direction, clientPort) 
 
@@ -127,7 +127,7 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
     elif opcode == 0x0d:
       if client:
         frag = getFragmentData(client, direction)
-        uncompressed = uncompress(bytes, isSubPacket, True)
+        uncompressed = uncompress(bytes, isSubPacket, False)
         seq = readBUInt16(uncompressed)
         frag['data'][seq] = uncompressed
         found = False
