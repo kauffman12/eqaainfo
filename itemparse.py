@@ -282,25 +282,27 @@ def readItem(bytes):
   for misc in ['collectable', 'nodestroy', 'nonpc', 'nozone']:
     data.append(readInt8(bytes))
 
+  # filled in for ornaments but also seems to in line with
+  # MadeBy names
   for unknown in range(4):
     data.append(readUInt8(bytes))      # UNKNOWN 41 to 44
 
-  # unk45 is always zero?
-  for misc in ['noground', 'UNKNOWN 45', 'marketplace', 'freestorage']:
-    data.append(readInt8(bytes))
+  # Items like Cosgrove Soloist Boot Seal of the Singer seem
+  # to end around here and have incrementing values every 4 bytes
+  # hopefully this works for now
+  if bytes[0] > 1 and bytes[4] > 1 and bytes[8] > 1:
+    for empty in range(10): data.append(0)
+  else:
+    # unk45 is always zero?
+    for misc in ['noground', 'UNKNOWN 45', 'marketplace', 'freestorage']:
+      data.append(readInt8(bytes))
+    data.append(readUInt8(bytes))        # UNKNOWN 46
+    data.append(readUInt32(bytes))       # UNKNOWN 47
+    data.append(readUInt32(bytes))       # UNKNOWN 48
 
-  data.append(readUInt8(bytes))        # UNKNOWN 46
-  data.append(readUInt32(bytes))       # UNKNOWN 47
-  data.append(readUInt32(bytes))       # UNKNOWN 48
-
-  minLuck = readInt32(bytes)           # min luck
-  maxLuck = readInt32(bytes)           # max luck
-  if minLuck < 0 or minLuck > 500 or maxLuck < 0 or maxLuck > 500:
-    raise ParseError
-  data.append(minLuck)
-  data.append(maxLuck)
-
-  data.append(readInt32(bytes))        # lore equipped
+    data.append(readInt32(bytes))        # min luck
+    data.append(readInt32(bytes))        # max luck
+    data.append(readInt32(bytes))        # lore equipped
 
   # add evolving related fields
   data.append(evolvable)
