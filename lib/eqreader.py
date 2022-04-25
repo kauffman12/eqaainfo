@@ -101,6 +101,8 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
           addClient(dstIP, dstPort, srcIP, srcPort, maxLen, session)
           getFragmentData(Clients[dstPort], ClientToServer)['data'] = dict()
           getFragmentData(Clients[dstPort], ServerToClient)['data'] = dict()
+          # using this as a reset message for any cached data
+          callback(opcode, bytearray([]), timeStamp, False, port)
 
     # Disconnect
     elif opcode == 0x05:
@@ -130,16 +132,13 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
         uncompressed = uncompress(bytes, isSubPacket, False)
         seq = readBUInt16(uncompressed)
 
-        # remove stale data
-        stale = bytearray([])
+        # remove stale data and assume it's bad or
+        # sending things too out of time order will cause problems
         for key in sorted(frag['data'].keys()):
           if (timeStamp - frag['data'][key]['time']) > 60:
-            stale += frag['data'][key]['part']
             del frag['data'][key]
           else:
             break
-        if len(stale) > 0:
-          findAppPacket(callback, stale, timeStamp, direction, clientPort)
 
         frag['data'][seq] = {'part': uncompressed, 'time': timeStamp}
         found = False

@@ -45,6 +45,7 @@ def getClientData(port):
   ClientData[port]['extraOpcode'] = -1
   ClientData[port]['charmOpcode'] = -1
   ClientData[port]['charmFiles'] = []
+  ClientData[port]['lastItems'] = []
   return ClientData[port]
 
 def readItem(bytes):
@@ -338,6 +339,13 @@ def handleEQPacket(opcode, bytes, timeStamp, clientToServer, clientPort):
   global ItemData, IdNameCache, MadeBy, ReadingFile, ExtraInfo, CharmCache
 
   client = getClientData(clientPort)
+
+  # EQ had a session reset so clear out data
+  if opcode == 0x02 and len(bytes) == 0:
+    client['extraOpcode'] = -1
+    client['charmOpcode'] = -1
+    client['charmFiles'] = []
+    client['lastItems'] = []
 
   if clientToServer:
     handled = False
