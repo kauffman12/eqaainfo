@@ -129,7 +129,19 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
         frag = getFragmentData(client, direction)
         uncompressed = uncompress(bytes, isSubPacket, False)
         seq = readBUInt16(uncompressed)
-        frag['data'][seq] = uncompressed
+
+        # remove stale data
+        stale = bytearray([])
+        for key in sorted(frag['data'].keys()):
+          if (timeStamp - frag['data'][key]['time']) > 60:
+            stale += frag['data'][key]['part']
+            del frag['data'][key]
+          else:
+            break
+        if len(stale) > 0:
+          findAppPacket(callback, stale, timeStamp, direction, clientPort)
+
+        frag['data'][seq] = {'part': uncompressed, 'time': timeStamp}
         found = False
         size = -1
         data = bytearray([])
@@ -140,7 +152,8 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
         for key in order:
           if current != key:
             break
-          data += frag['data'][key]
+
+          data += frag['data'][key]['part']
           if size == -1:
             # temp read off size
             size = readBUInt32(data[0:4])

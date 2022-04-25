@@ -245,7 +245,7 @@ def readItem(bytes):
     data.append(readUInt32(bytes))    # cast time
     data.append(readUInt32(bytes))    # recast delay
     data.append(readInt32(bytes))     # recast type
-    data.append(readUInt32(bytes))    # proc mod
+    data.append(readInt32(bytes))     # proc mod
     data.append(readString(bytes))    # name
     data.append(readInt32(bytes))     # not used?
   data.append(readInt32(bytes))       # right click script id
