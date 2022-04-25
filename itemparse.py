@@ -367,7 +367,7 @@ def handleEQPacket(opcode, bytes, timeStamp, clientToServer, clientPort):
       else:
         charmFileNext = ''
 
-    if opcode == client['charmOpcode'] and len(bytes) > 20 and len(charmFileNext) > 0:
+    if opcode == client['charmOpcode'] and len(bytes) > 10 and len(charmFileNext) > 0:
       code = readInt32(bytes)
       space = readInt32(bytes)
       space2 = readInt16(bytes)
