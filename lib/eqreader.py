@@ -157,15 +157,6 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
 
         if found:
           findAppPacket(callback, data, timeStamp, direction, clientPort)
-          # there shouldn't be too many unhandled packets after
-          # a group has successfully been found
-          if len(frag['data']) > 5:
-            remaining = bytearray([])
-            for r in sorted(frag['data'].keys()):
-              remaining += frag['data']
-            findAppPacket(callback, remaining, timeStamp, direction, clientPort)
-            frag['data'] = dict()
-
     else:
       if (opcode & 0xff00) != 0:
         findAppPacket(callback, bytes, timeStamp, direction, clientPort)

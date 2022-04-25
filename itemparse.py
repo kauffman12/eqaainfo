@@ -292,8 +292,13 @@ def readItem(bytes):
   data.append(readUInt32(bytes))       # UNKNOWN 47
   data.append(readUInt32(bytes))       # UNKNOWN 48
 
-  data.append(readInt32(bytes))        # min luck
-  data.append(readInt32(bytes))        # max luck
+  minLuck = readInt32(bytes)           # min luck
+  maxLuck = readInt32(bytes)           # max luck
+  if minLuck < 0 or minLuck > 500 or maxLuck < 0 or maxLuck > 500:
+    raise ParseError
+  data.append(minLuck)
+  data.append(maxLuck)
+
   data.append(readInt32(bytes))        # lore equipped
 
   # add evolving related fields
