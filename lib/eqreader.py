@@ -6,13 +6,13 @@ from scapy.all import *
 from lib.util import *
 
 Clients = dict()
+ServerIPs = dict()
 ClientToServer = 0
 ServerToClient = 1
 UnknownDirection = 2
-ServerIPList = []
 
 def addClient(clientIP, clientPort, serverIP, serverPort, maxLength, s, sKey):
-  global ServerIPList
+  global ServerIPs
   Clients[clientPort] = dict()
   Clients[clientPort]['clientIP'] = clientIP
   Clients[clientPort]['serverIP'] = serverIP
@@ -22,7 +22,7 @@ def addClient(clientIP, clientPort, serverIP, serverPort, maxLength, s, sKey):
   Clients[clientPort]['maxLength'] = maxLength
   Clients[clientPort]['session'] = s
   Clients[clientPort]['sKey'] = sKey
-  ServerIPList.append(serverIP)
+  ServerIPs[serverIP] = True
 
 def isValidCRC(client, opcode, bytes, isSubPacket):
   valid = True
@@ -67,17 +67,17 @@ def findAppPacket(callback, bytes, timeStamp, direction, port):
       callback(appoc, bytes, timeStamp, clientToServer, port)
 
 def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, isSubPacket):
-  global Clients, ServerIPList, UnknownDirection
+  global Clients, ServerIPs, UnknownDirection
 
   client = None
   clientPort = -1
   direction = UnknownDirection
 
-  if srcIP in ServerIPList and dstPort in Clients:
+  if srcIP in ServerIPs and dstPort in Clients:
     clientPort = dstPort
     client = Clients[clientPort]
     direction = ServerToClient
-  elif dstIP in ServerIPList and srcPort in Clients:
+  elif dstIP in ServerIPs and srcPort in Clients:
     clientPort = srcPort
     client = Clients[clientPort]
     direction = ClientToServer
@@ -117,7 +117,7 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
     elif opcode == 0x05:
       if len(bytes) == 9:
         del Clients[clientPort]
-        ServerIPList.remove(srcIP)
+        del ServerIPs[srcIP]
 
     # Combined 
     elif opcode == 0x03:
