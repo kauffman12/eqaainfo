@@ -60,7 +60,7 @@ def findAppPacket(callback, bytes, timeStamp, clientToServer, port):
       callback(appoc, bytes, timeStamp, clientToServer, port)
 
 def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, isSubPacket):
-  global Clients, ServerIPs, UnknownDirection
+  global Clients, ServerIPs
 
   client = None
   clientPort = -1
