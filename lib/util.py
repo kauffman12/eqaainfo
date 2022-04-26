@@ -33,9 +33,10 @@ def readBUInt32(buffer):
   del buffer[0:4]
   return int.from_bytes(value, 'big', signed=False)
 
-def readBytes(buffer, count):
+def readBytes(buffer, count, endian='little'):
   value = buffer[0:count]
   del buffer[0:count]
+  if endian == 'big': value.reverse()
   return value
 
 def readFloat32(buffer):

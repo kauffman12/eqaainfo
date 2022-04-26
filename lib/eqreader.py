@@ -104,8 +104,7 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
     elif opcode == 0x02:
       if len(bytes) == 19:
         session = readBUInt32(bytes)
-        sKey = readBytes(bytes, 4)
-        sKey.reverse() # get in correct byte order
+        sKey = readBytes(bytes, 4, 'big')
         readBytes(bytes, 3)
         maxLen = readBUInt32(bytes)
         if dstPort in Clients and Clients[dstPort]['session'] == session:
@@ -144,6 +143,7 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
         frag = getFragmentData(client, direction)
         uncompressed = uncompress(opcode, bytes, isSubPacket)
         seq = readBUInt16(uncompressed)
+        frag['data'][seq] = {'part': uncompressed, 'time': timeStamp}
 
         # remove stale data and assume it's bad
         # sending things too out of time order will cause problems
@@ -151,9 +151,9 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
           if (timeStamp - frag['data'][key]['time']) > 60:
             del frag['data'][key]
           else:
+            # seq sort should also be time sort
             break
 
-        frag['data'][seq] = {'part': uncompressed, 'time': timeStamp}
         found = False
         size = -1
         data = bytearray([])
@@ -177,7 +177,6 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
               del frag['data'][start + i]
             break
           current += 1
-
         if found:
           findAppPacket(callback, data, timeStamp, direction, clientPort)
     else:
