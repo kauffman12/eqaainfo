@@ -12,7 +12,7 @@ ServerToClient = 1
 UnknownDirection = 2
 ServerIPList = []
 
-def addClient(clientIP, clientPort, serverIP, serverPort, maxLength, session):
+def addClient(clientIP, clientPort, serverIP, serverPort, maxLength, session, sKey):
   global ServerIPList
   Clients[clientPort] = dict()
   Clients[clientPort]['clientIP'] = clientIP
@@ -22,7 +22,19 @@ def addClient(clientIP, clientPort, serverIP, serverPort, maxLength, session):
   Clients[clientPort]['clientFrags'] = dict()
   Clients[clientPort]['maxLength'] = maxLength
   Clients[clientPort]['session'] = session
+  Clients[clientPort]['sKey'] = sKey
   ServerIPList.append(serverIP)
+
+def isValidCRC(client, opcode, bytes, isSubPacket):
+  valid = True
+  if not isSubPacket:
+    temp = bytearray([])
+    temp += client['sKey']
+    temp += opcode.to_bytes(2, 'big')
+    temp += bytes[0:-2]
+    crc = (zlib.crc32(temp) & 0xffff)
+    valid = (crc == readBUInt16(bytes[-2:]))
+  return valid
 
 def getFragmentData(client, direction):
   if direction == ClientToServer:
@@ -88,17 +100,20 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
       if len(bytes) == 22:
         readBytes(bytes, 4)
         session = readBUInt32(bytes)
-        addClient(srcIP, srcPort, dstIP, dstPort, 512, session)
+        # use this to setup the initial session
+        addClient(srcIP, srcPort, dstIP, dstPort, 512, session, 0)
 
     # Session Response
     elif opcode == 0x02:
       if len(bytes) == 19:
         session = readBUInt32(bytes)
-        readBytes(bytes, 7)
+        sKey = readBytes(bytes, 4)
+        sKey.reverse() # get in correct byte order
+        readBytes(bytes, 3)
         maxLen = readBUInt32(bytes)
         if dstPort in Clients and Clients[dstPort]['session'] == session:
-          # max length should always be 512 but they could raise it
-          addClient(dstIP, dstPort, srcIP, srcPort, maxLen, session)
+          # should just update the client added during the request
+          addClient(dstIP, dstPort, srcIP, srcPort, maxLen, session, sKey)
           getFragmentData(Clients[dstPort], ClientToServer)['data'] = dict()
           getFragmentData(Clients[dstPort], ServerToClient)['data'] = dict()
           # using this as a reset message for any cached data
@@ -112,27 +127,28 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
 
     # Combined 
     elif opcode == 0x03:
-      uncompressed = uncompress(bytes, isSubPacket, True)
-      while (len(uncompressed) > 2):
-        size = readUInt8(uncompressed)
-        newPacket = readBytes(uncompressed, size)
-        processPacket(callback, srcIP, dstIP, srcPort, dstPort, newPacket, timeStamp, True)
+      if client and isValidCRC(client, opcode, bytes, isSubPacket):
+        uncompressed = uncompress(bytes, isSubPacket, True)
+        while (len(uncompressed) > 2):
+          size = readUInt8(uncompressed)
+          newPacket = readBytes(uncompressed, size)
+          processPacket(callback, srcIP, dstIP, srcPort, dstPort, newPacket, timeStamp, True)
 
     # Packet
     elif opcode == 0x09:
-      if client:
+      if client and isValidCRC(client, opcode, bytes, isSubPacket):
         uncompressed = uncompress(bytes, isSubPacket, False)
         seq = readBUInt16(uncompressed)
         findAppPacket(callback, uncompressed, timeStamp, direction, clientPort) 
 
     # Fragment
     elif opcode == 0x0d:
-      if client:
+      if client and isValidCRC(client, opcode, bytes, isSubPacket):
         frag = getFragmentData(client, direction)
         uncompressed = uncompress(bytes, isSubPacket, False)
         seq = readBUInt16(uncompressed)
 
-        # remove stale data and assume it's bad or
+        # remove stale data and assume it's bad
         # sending things too out of time order will cause problems
         for key in sorted(frag['data'].keys()):
           if (timeStamp - frag['data'][key]['time']) > 60:

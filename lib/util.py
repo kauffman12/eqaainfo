@@ -21,6 +21,8 @@ def findIndexOf(bytes, data, size=4):
     end += 1
   return index
 
+def printBytes(buffer): print ([hex(i) for i in buffer])
+
 def readBUInt16(buffer):
   value = buffer[0:2]
   del buffer[0:2]
@@ -97,6 +99,3 @@ def readString(buffer, maxLength=0):
 
     del buffer[0:count]
   return result
-
-def printBytes(buffer):
-  print ([hex(i) for i in buffer])
