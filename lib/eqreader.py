@@ -33,11 +33,9 @@ def isValidCRC(client, opcode, bytes, isSubPacket):
     valid = (crc == readBUInt16(bytes[-2:]))
   return valid
 
-def getFragmentData(client, direction):
-  if direction == ClientToServer:
-    return client['clientFrags']
-  elif direction == ServerToClient:
-    return client['serverFrags']
+def getFragmentData(client, clientToServer):
+  if clientToServer: return client['clientFrags']
+  return client['serverFrags']
 
 def uncompress(opcode, bytes, isSubPacket):
   uncompressed = bytes
@@ -48,10 +46,9 @@ def uncompress(opcode, bytes, isSubPacket):
     if opcode != 0x03: uncompressed = uncompressed[:-2]
   return uncompressed
 
-def findAppPacket(callback, bytes, timeStamp, direction, port):
+def findAppPacket(callback, bytes, timeStamp, clientToServer, port):
   global ClientToServer
   appoc = readUInt16(bytes)
-  clientToServer = (direction == ClientToServer)
   if appoc == 0x1900:
     while len(bytes) > 3:
       size = readUInt8(bytes)
@@ -88,6 +85,7 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
   # do nothing until sessions request/response is seen
   opcode = readBUInt16(bytes)
   if direction == UnknownDirection and opcode not in [0x01, 0x02]: return
+  clientToServer = (direction == ClientToServer)
 
   try:
     # Session Request
@@ -131,14 +129,14 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
     # Packet
     elif opcode == 0x09:
       if client and isValidCRC(client, opcode, bytes, isSubPacket):
-        uncompressed = uncompress(opcode, bytes, isSubPacket)
-        seq = readBUInt16(uncompressed)
-        findAppPacket(callback, uncompressed, timeStamp, direction, clientPort) 
+        data = uncompress(opcode, bytes, isSubPacket)
+        seq = readBUInt16(data)
+        findAppPacket(callback, data, timeStamp, clientToServer, clientPort) 
 
     # Fragment
     elif opcode == 0x0d:
       if client and isValidCRC(client, opcode, bytes, isSubPacket):
-        frag = getFragmentData(client, direction)
+        frag = getFragmentData(client, clientToServer)
         uncompressed = uncompress(opcode, bytes, isSubPacket)
         seq = readBUInt16(uncompressed)
         frag['data'][seq] = {'part': uncompressed, 'time': timeStamp}
@@ -176,13 +174,13 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
             break
           current += 1
         if found:
-          findAppPacket(callback, data, timeStamp, direction, clientPort)
+          findAppPacket(callback, data, timeStamp, clientToServer, clientPort)
     else:
       pass
       # not sure these are useful for item or AA parsing
       #if (opcode & 0xff00) != 0: # other application level
       #  if client and isValidCRC(client, opcode, bytes, isSubPacket):
-      #    findAppPacket(callback, bytes, timeStamp, direction, clientPort)
+      #    findAppPacket(callback, bytes, timeStamp, clientToServer, clientPort)
 
   except Exception as other:  
     print(other) # traceback.print_exc()
