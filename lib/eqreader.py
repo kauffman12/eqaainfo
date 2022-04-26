@@ -83,13 +83,11 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
     direction = ClientToServer
 
   # packet exceeds max length
-  if client and len(bytes) > client['maxLength']:
-    return
+  if client and len(bytes) > client['maxLength']: return
 
   # do nothing until sessions request/response is seen
   opcode = readBUInt16(bytes)
-  if direction == UnknownDirection and opcode not in [0x01, 0x02]:
-    return
+  if direction == UnknownDirection and opcode not in [0x01, 0x02]: return
 
   try:
     # Session Request
