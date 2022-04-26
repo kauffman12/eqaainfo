@@ -186,8 +186,9 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
         if found:
           findAppPacket(callback, data, timeStamp, direction, clientPort)
     else:
-      if (opcode & 0xff00) != 0:
-        findAppPacket(callback, bytes, timeStamp, direction, clientPort)
+      if (opcode & 0xff00) != 0: # other application level
+        if client and isValidCRC(client, opcode, bytes, isSubPacket):
+          findAppPacket(callback, bytes, timeStamp, direction, clientPort)
 
   except Exception as other:  
     print(other) # traceback.print_exc()
