@@ -63,8 +63,8 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
   global Clients, ServerIPs
 
   client = None
-  clientPort = -1
-  direction = 'unknown'
+  clientPort = 0
+  direction = None
   if srcIP in ServerIPs and dstPort in Clients:
     clientPort = dstPort
     client = Clients[clientPort]
@@ -79,7 +79,7 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
 
   # do nothing until sessions request/response is seen
   opcode = readBUInt16(bytes)
-  if direction == 'unknown' and opcode not in [0x01, 0x02]: return
+  if not direction and opcode not in [0x01, 0x02]: return
   clientToServer = (direction == 'clientToServer')
 
   try:
