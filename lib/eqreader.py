@@ -1,6 +1,5 @@
 #
-# EQ Packet handling. EQExtractor created by EQEMu Development Team used
-# as a reference but it's been completely reworked at this point.
+# EQ Packet handling.
 #
 import zlib
 from scapy.all import *
@@ -12,7 +11,7 @@ ServerToClient = 1
 UnknownDirection = 2
 ServerIPList = []
 
-def addClient(clientIP, clientPort, serverIP, serverPort, maxLength, session, sKey):
+def addClient(clientIP, clientPort, serverIP, serverPort, maxLength, s, sKey):
   global ServerIPList
   Clients[clientPort] = dict()
   Clients[clientPort]['clientIP'] = clientIP
@@ -21,35 +20,32 @@ def addClient(clientIP, clientPort, serverIP, serverPort, maxLength, session, sK
   Clients[clientPort]['serverFrags'] = dict()
   Clients[clientPort]['clientFrags'] = dict()
   Clients[clientPort]['maxLength'] = maxLength
-  Clients[clientPort]['session'] = session
+  Clients[clientPort]['session'] = s
   Clients[clientPort]['sKey'] = sKey
   ServerIPList.append(serverIP)
 
 def isValidCRC(client, opcode, bytes, isSubPacket):
   valid = True
   if not isSubPacket:
-    temp = bytearray([])
-    temp += client['sKey']
-    temp += opcode.to_bytes(2, 'big')
-    temp += bytes[0:-2]
-    crc = (zlib.crc32(temp) & 0xffff)
+    # crc of session key and original packet minus received checksum
+    packet = client['sKey'][:] + opcode.to_bytes(2, 'big') + bytes[0:-2]
+    crc = (zlib.crc32(packet) & 0xffff)
     valid = (crc == readBUInt16(bytes[-2:]))
   return valid
 
 def getFragmentData(client, direction):
   if direction == ClientToServer:
     return client['clientFrags']
-  return client['serverFrags']
+  elif direction == ServerToClient:
+    return client['serverFrags']
 
-def uncompress(bytes, isSubPacket, isCombined):
-  if (not isSubPacket and bytes[0] == 0x5a):
+def uncompress(opcode, bytes, isSubPacket):
+  uncompressed = bytes
+  if not isSubPacket and bytes[0] == 0x5a:
     uncompressed = bytearray(zlib.decompress(bytes[1:]))
-  elif (not isSubPacket and bytes[0] == 0xa5):
+  elif not isSubPacket and bytes[0] == 0xa5:
     uncompressed = bytes[1:]
-    if not isCombined:
-      uncompressed = uncompressed[:-2]
-  else:
-    uncompressed = bytes
+    if opcode != 0x03: uncompressed = uncompressed[:-2]
   return uncompressed
 
 def findAppPacket(callback, bytes, timeStamp, direction, port):
@@ -59,8 +55,7 @@ def findAppPacket(callback, bytes, timeStamp, direction, port):
   if appoc == 0x1900:
     while len(bytes) > 3:
       size = readUInt8(bytes)
-      if size == 0xff:
-        size = readBUInt16(bytes)
+      if size == 0xff: size = readBUInt16(bytes)
       newPacket = readBytes(bytes, size)
       appoc = readUInt16(newPacket)
       if appoc == 0:
@@ -87,9 +82,11 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
     client = Clients[clientPort]
     direction = ClientToServer
 
+  # packet exceeds max length
   if client and len(bytes) > client['maxLength']:
     return
 
+  # do nothing until sessions request/response is seen
   opcode = readBUInt16(bytes)
   if direction == UnknownDirection and opcode not in [0x01, 0x02]:
     return
@@ -127,17 +124,17 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
 
     # Combined 
     elif opcode == 0x03:
-      if client and isValidCRC(client, opcode, bytes, isSubPacket):
-        uncompressed = uncompress(bytes, isSubPacket, True)
-        while (len(uncompressed) > 2):
+      if client and isValidCRC(client, opcode, bytes, False):
+        uncompressed = uncompress(opcode, bytes, False)
+        while (len(uncompressed) > 6):
           size = readUInt8(uncompressed)
-          newPacket = readBytes(uncompressed, size)
-          processPacket(callback, srcIP, dstIP, srcPort, dstPort, newPacket, timeStamp, True)
+          subPacket = readBytes(uncompressed, size)
+          processPacket(callback, srcIP, dstIP, srcPort, dstPort, subPacket, timeStamp, True)
 
     # Packet
     elif opcode == 0x09:
       if client and isValidCRC(client, opcode, bytes, isSubPacket):
-        uncompressed = uncompress(bytes, isSubPacket, False)
+        uncompressed = uncompress(opcode, bytes, isSubPacket)
         seq = readBUInt16(uncompressed)
         findAppPacket(callback, uncompressed, timeStamp, direction, clientPort) 
 
@@ -145,7 +142,7 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
     elif opcode == 0x0d:
       if client and isValidCRC(client, opcode, bytes, isSubPacket):
         frag = getFragmentData(client, direction)
-        uncompressed = uncompress(bytes, isSubPacket, False)
+        uncompressed = uncompress(opcode, bytes, isSubPacket)
         seq = readBUInt16(uncompressed)
 
         # remove stale data and assume it's bad
@@ -167,12 +164,10 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
         for key in order:
           if current != key:
             break
-
           data += frag['data'][key]['part']
           if size == -1:
             # temp read off size
             size = readBUInt32(data[0:4])
-
           if len(data) == (size + 4):
             # ok really remove the size
             readBUInt32(data)
