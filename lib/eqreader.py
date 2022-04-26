@@ -154,7 +154,10 @@ def processPacket(callback, srcIP, dstIP, srcPort, dstPort, bytes, timeStamp, is
 
         for key in order:
           if current != key:
-            break
+            size = -1
+            data = bytearray([])
+            current = key
+            start = key
           data += frag['data'][key]['part']
           if size == -1:
             # temp read off size
