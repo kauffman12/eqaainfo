@@ -163,8 +163,9 @@ def readItem(bytes):
   data.append(readUInt32(bytes))      # bard type?
   data.append(readInt32(bytes))       # bard value?
   data.append(readInt8(bytes))        # light level
+  data.append(readUInt8(bytes))       # weapon delay
 
-  for weaponStuff in ['weapon delay', 'element type', 'element damage']:
+  for elementStuff in ['element type', 'element damage']:
     data.append(readInt8(bytes))
 
   data.append(readUInt8(bytes))       # weapon range
