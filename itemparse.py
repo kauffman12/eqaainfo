@@ -191,6 +191,9 @@ def readItem(bytes):
   for forAugs in ['type 7/8/etc', 'some restriction', 'type 1h/2h/range']: 
     data.append(readUInt32(bytes))
 
+  # save augType
+  augType =  (data[len(data) - 3])
+
   # there are 6 possible aug slots in an item
   for augSlots in range(6):
     # type (3/4/8/etc)
@@ -297,12 +300,20 @@ def readItem(bytes):
     # unk45 is always zero?
     for misc in ['noground', 'UNKNOWN 45', 'marketplace', 'freestorage']:
       data.append(readInt8(bytes))
+
     data.append(readUInt8(bytes))        # UNKNOWN 46
     data.append(readUInt32(bytes))       # UNKNOWN 47
     data.append(readUInt32(bytes))       # UNKNOWN 48
 
-    data.append(readInt32(bytes))        # min luck
-    data.append(readInt32(bytes))        # max luck
+    # special case for type 3s for now
+    # they seem to have less data than other items
+    if augType != 4:
+      data.append(readInt32(bytes))        # min luck
+      data.append(readInt32(bytes))        # max luck
+    else:
+      data.append(0)
+      data.append(0)
+      readInt32(bytes)
     data.append(readInt32(bytes))        # lore equipped
 
   # add evolving related fields
