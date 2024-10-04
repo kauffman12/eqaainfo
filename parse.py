@@ -288,10 +288,15 @@ def handleEQPacket(opcode, bytes, timeStamp, clientToServer, clientPort):
       record.category = readInt32(bytes)
       record.expansion2 = readUInt32(bytes) # required expansion? it's not always set
       readBytes(bytes, 9) # unknown
+      
+      spaCount = readUInt32(bytes[0:4])
+      if spaCount >= 256:
+        # new byte added 2024 beta, maybe related to expansion count increasing 32+
+        readBytes(bytes, 1)
       record.spaCount = readUInt32(bytes)
       record.spaData = []
 
-      if record.spaCount < 500:
+      if record.spaCount < 256:
         for _ in range(record.spaCount):
           if EQ64Bit:
             record.spaData.append(readInt32(bytes))
