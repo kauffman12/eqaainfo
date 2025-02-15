@@ -174,7 +174,8 @@ def readItem(bytes):
   for misc in ['color', 'prestige']:  # prestige is often expansion
     data.append(readUInt32(bytes))
 
-  data.append(readUInt8(bytes))       # item type (book/general)
+  itemType = readUInt8(bytes)         # item type (book/general)
+  data.append(itemType)
 
   for mat in [ 'type', 'unknown', 'elite', 'heroes forge', 'heroes forge' ]:
     data.append(readInt32(bytes))
@@ -307,7 +308,7 @@ def readItem(bytes):
 
     # special case for type augs that seem to have large struct
     # they seem to have less data than other items
-    if augType == 0 or (augType & (1 << 17)) or (augType & (1 << 18)) or (augType & (1 << 21)):
+    if itemType == 67 or augType == 0 or (augType & (1 << 3)) or (augType & (1 << 17)) or (augType & (1 << 18)) or (augType & (1 << 21)):
       data.append(readInt32(bytes))        # min luck
       data.append(readInt32(bytes))        # max luck
     else:
