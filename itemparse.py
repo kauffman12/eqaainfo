@@ -305,9 +305,9 @@ def readItem(bytes):
     data.append(readUInt32(bytes))       # UNKNOWN 47
     data.append(readUInt32(bytes))       # UNKNOWN 48
 
-    # special case for type 3s for now
+    # special case for type augs that seem to have large struct
     # they seem to have less data than other items
-    if augType != 4:
+    if augType == 0 or (augType & (1 << 17)) or (augType & (1 << 18)) or (augType & (1 << 21)):
       data.append(readInt32(bytes))        # min luck
       data.append(readInt32(bytes))        # max luck
     else:
