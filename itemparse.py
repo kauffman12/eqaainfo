@@ -307,7 +307,7 @@ def readItem(bytes):
     data.append(readUInt32(bytes))       # UNKNOWN 47
     data.append(readUInt32(bytes))       # UNKNOWN 48
 
-    if itemType == 67 or prestige < 25:
+    if itemType == 67:
       data.append(0)                      # no luck
       data.append(0)                      # no luck
       data.append(readInt32(bytes))       # lore equipped
@@ -318,7 +318,7 @@ def readItem(bytes):
         data.append(minLuck)               # min luck
         data.append(maxLuck)               # max luck
         data.append(readInt32(bytes))      # lore equipped
-      elif maxLuck > 0:
+      elif maxLuck != 0:
         data.append(0)                     # no luck
         data.append(0)                     # no luck
         data.append(maxLuck)               # lore equipped
