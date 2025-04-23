@@ -1,4 +1,4 @@
-#
+
 # Script to parse pcap output for items.
 # Saves in an old format similar to what EQ websites rely on so
 # others are more familiar with the data output
@@ -170,9 +170,10 @@ def readItem(bytes):
 
   data.append(readUInt8(bytes))       # weapon range
   data.append(readInt32(bytes))       # weapon damage
+  data.append(readUInt32(bytes))      # color
 
-  for misc in ['color', 'prestige']:  # prestige is often expansion
-    data.append(readUInt32(bytes))
+  prestige = readInt32(bytes)
+  data.append(prestige)               # prestige / expansion
 
   itemType = readUInt8(bytes)         # item type (book/general)
   data.append(itemType)
@@ -306,16 +307,25 @@ def readItem(bytes):
     data.append(readUInt32(bytes))       # UNKNOWN 47
     data.append(readUInt32(bytes))       # UNKNOWN 48
 
-    # special case for some augs that seem to have large struct
-    # and to avoid bags trying to parse this stuff
-    if itemType != 67 and (augType == 0 or (augType & (1 << 3)) or (augType & (1 << 17)) or (augType & (1 << 18)) or (augType & (1 << 21))):
-      data.append(readInt32(bytes))        # min luck
-      data.append(readInt32(bytes))        # max luck
+    if itemType == 67 or prestige < 25:
+      data.append(0)                      # no luck
+      data.append(0)                      # no luck
+      data.append(readInt32(bytes))       # lore equipped
     else:
-      data.append(0)
-      data.append(0)
-      readInt32(bytes)
-    data.append(readInt32(bytes))        # lore equipped
+      minLuck = readInt32(bytes)
+      maxLuck = readInt32(bytes)
+      if minLuck > 0:
+        data.append(minLuck)               # min luck
+        data.append(maxLuck)               # max luck
+        data.append(readInt32(bytes))      # lore equipped
+      elif maxLuck > 0:
+        data.append(0)                     # no luck
+        data.append(0)                     # no luck
+        data.append(maxLuck)               # lore equipped
+      else:
+        data.append(0)                     # no luck
+        data.append(0)                     # no luck
+        data.append(readInt32(bytes))      # lore equipped
 
   # add evolving related fields
   data.append(evolvable)
@@ -536,7 +546,7 @@ def main(args):
   global ReadingFile, StartTime, SortByTime
 
   if (len(args) < 2):
-    print ('Usage: ' + args[0] + '-capture | -file <pcap file> [-sort id]')
+    print ('Usage: ' + args[0] + ' -capture | -file <pcap file> [-sort id]')
   else:
     try:
       StartTime = datetime.now().strftime(TimeRangeFormat)
