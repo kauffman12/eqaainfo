@@ -57,6 +57,7 @@ def readItem(bytes):
   evolveId = 0
   evolveLevel = 0
   evolveMaxLevel = 0
+  cashLoot = 0
 
   readUInt8(bytes)                    # quantity
   readBytes(bytes, 58)                # unknown
@@ -112,7 +113,10 @@ def readItem(bytes):
   for misc in ['norent', 'notrade', 'attunable', 'size']:
     data.append(readInt8(bytes))
 
-  for misc in ['inventory slots the item fits', 'sell price', 'icon id']:
+  slotTypes = readUInt32(bytes)      # slots
+  data.append(slotTypes)
+
+  for misc in ['sell price', 'icon id']:
     data.append(readUInt32(bytes))
 
   for misc in ['benefit flag?', 'used in tradeskills']:
@@ -323,9 +327,18 @@ def readItem(bytes):
         data.append(0)                     # no luck
         data.append(maxLuck)               # lore equipped
       else:
-        data.append(0)                     # no luck
-        data.append(0)                     # no luck
-        data.append(readInt32(bytes))      # lore equipped
+        if slotTypes == 0:
+            data.append(0)                      # no luck
+            data.append(0)                      # no luck
+            cashLoot = readInt32(bytes)         # cash loot
+            data.append(0)
+        else:
+            data.append(0)                     # no luck
+            data.append(0)                     # no luck
+            data.append(readInt32(bytes))      # lore equipped
+
+  # add cash loot
+  data.append(cashLoot)
 
   # add evolving related fields
   data.append(evolvable)
