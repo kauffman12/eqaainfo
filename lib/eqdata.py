@@ -38,11 +38,13 @@ def loadDBStrings():
     print('Loading Strings DB from %s' % DBStringsFile)
     db = open(DBStringsFile, 'r')
     for line in db:
-      result = re.match(r'^(\d+)\^(\d)\^([\w\s\'\-\(\)\:\+\.\,\"\/\%\#\<\>]+?)\^[0]\^$', line)
-      if (result != None and result.group(2) == '1'):
-        titles[int(result.group(1))] = result.group(3)
-      elif (result != None and result.group(2) == '4'):
-        descs[int(result.group(1))] = result.group(3)
+      result = re.match(r'^(\d+)\^(\d)\^([^^]+)\^(0|33)\^$', line)
+      if result != None:
+        group2Value = result.group(2)
+        if group2Value == '1':
+          titles[int(result.group(1))] = result.group(3)
+        elif group2Value == '4':
+          descs[int(result.group(1))] = result.group(3)
         
     if (len(titles) > 0):
       print('Found %d titles' % len(titles))
