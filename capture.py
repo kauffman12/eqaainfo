@@ -35,10 +35,14 @@ def main(args):
         elif read == b'y':
           overwrite = True
 
+    iface = conf.route.route("8.8.8.8")[0]
+    print("Using default interface:", iface)
+
     print('Capturing to %s (Ctrl+C to Stop)' % args[1], flush = True)
     writer = PcapWriter(args[1], append=True, sync=False)
 
     while not stop:
-      sniff(filter="udp and (src net 69.174 or dst net 69.174)", timeout=3, prn=packet_callback, store=0)
+      sniff(iface=iface, filter="udp and (src net 69.174 or dst net 69.174)", timeout=3, prn=packet_callback, store=0)
+
 
 main(sys.argv)
