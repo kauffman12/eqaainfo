@@ -65,7 +65,7 @@ def loadDBSpells():
     print('Loading Spells DB from %s' % DBSpellsFile)
     db = open(DBSpellsFile, 'r')
     for line in db:
-      result = re.match(r'^(\d+)\^([\w\s\'\-\(\)\:\+]+?)\^', line)
+      result = re.match(r'^(\d+)\^([\w\s\`\'\-\(\)\:\+]+?)\^', line)
       if (result != None):
         spells[int(result.group(1))] = result.group(2)
     if (len(spells) > 0):
