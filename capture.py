@@ -14,7 +14,7 @@ def handle_interrupt(signum, frame):
 
 writer = 0
 def packet_callback(packet):
-  if packet and packet[UDP] and packet[UDP].payload:
+  if packet and UDP in packet and packet[UDP].payload:
     writer.write(packet)
 
 def main(args):
