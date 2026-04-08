@@ -36,6 +36,13 @@ UpdateTimeFormat = '%Y-%m-%d %H:%M:%S'
 class ParseError (Exception):
   pass
 
+stop = False
+def handle_interrupt(signum, frame):
+  global stop
+  stop = True
+  saveData()
+  print("Stopping...", flush=True)
+
 def getClientData(port):
   global ClientData
   if port in ClientData:
@@ -60,7 +67,7 @@ def readItem(bytes):
   cashLoot = 0
 
   readUInt8(bytes)                    # quantity
-  readBytes(bytes, 58)                # unknown
+  readBytes(bytes, 50)                # unknown
 
   # can be converted / name length
   convertable = readUInt32(bytes)
@@ -571,9 +578,15 @@ def main(args):
           SortByTime = False
         printSortType()
         ReadingFile = False
-        signal.signal(signal.SIGINT, lambda signum, frame: saveData())
+        signal.signal(signal.SIGINT, handle_interrupt)
+
+        iface = conf.route.route("8.8.8.8")[0]
+        print("Using default interface:", iface)
+
         print('Waiting for data. You may need to zone. (Ctrl+C to Save/Exit)', flush=True)
-        sniff(filter="udp and (src net 69.174 or dst net 69.174)", timeout=None, prn=packet_callback, store=0)
+        while not stop:
+          sniff(iface=iface, filter="udp and (src net 69.174 or dst net 69.174)", timeout=3, prn=packet_callback, store=0)
+
       elif '-file' == args[1]:
         if len(args) == 5 and args[3] == '-sort' and args[4] == 'id':
           SortByTime = False
