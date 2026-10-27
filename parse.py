@@ -22,7 +22,7 @@ OutputFormat = 'PRETTY'
 Categories = ['', '', 'Progression', '', '', 'Veteran Reward', 'Tradeskill', 'Expendable', 'Racial Innate', 'Everquest', '', 'Item Effect']
 Types = ['Unknown', 'General', 'Archetype', 'Class', 'Special', 'Focus']
 
-FOCUS_SPAS = [ 170, 212, 260, 273, 294, 339, 375, 124, 127, 128, 129, 132, 286, 296, 297, 302, 303, 340, 374, 389, 399, 413, 461, 462, 469, 470, 483, 484, 507 ]
+FOCUS_SPAS = [ 124, 127, 128, 129, 132, 170, 212, 260, 273, 286, 294, 296, 297, 302, 303, 339, 340, 374, 375, 389, 399, 413, 461, 462, 469, 470, 483, 484, 507, 528, 534, 535 ]
 
 # Slot count, SPA, base1, base2, num info used to search for the AATableOpcode if it is unknown
 # Everyone has these and rank 1 seems to show up after a /resetAA
