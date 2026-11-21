@@ -100,6 +100,7 @@ def eqCalcOutput(record):
     entry['name'] = title
     entry['id'] = record.aaID
     entry['rank'] = record.rank
+    entry['expansion'] = record.expansion
 
     spellFocus = False
     doesDamage = False
@@ -121,8 +122,19 @@ def eqCalcOutput(record):
 
     if len(slotList) > 0:
       entry['slotList'] = slotList
+
+    hasSpell = False
+    if record.spellID > 0 and record.refreshTime > 0:
+      spellSlots = DBSpells.get(record.spellID)[1]
+      for spellSlot in spellSlots:
+        spellSlotData = spellSlot.split("|")
+        if len(spellSlotData) > 1 and int(spellSlotData[1]) in FOCUS_SPAS:
+          entry["refreshTime"] = record.refreshTime
+          entry["abilityTimer"] = record.abilityTimer
+          entry["spellID"] = record.spellID
+          hasSpell = True
     
-    if doesDamage or spellFocus:
+    if doesDamage or spellFocus or hasSpell:
       AAData['%s-%02d' % (title, record.rank)] = entry
 
 def prettyOutput(record):
@@ -161,7 +173,7 @@ def prettyOutput(record):
     output.write('Reuse Time:      Passive\n')
 
   if (record.spellID > 0):
-    spellName = DBSpells.get(record.spellID)
+    spellName = DBSpells.get(record.spellID)[0]
     if (spellName == None and len(DBSpells) > 0):
       print('Spell Title not found in DB for %d, possible problem parsing data (format change?)' % record.spellID)
     if (spellName == None):
@@ -169,6 +181,7 @@ def prettyOutput(record):
     else:
       spellName = '%s #%d' % (spellName, record.spellID)
     output.write('Spell:           %s\n' % spellName)
+    output.write('Spell ID:        %s\n' % record.spellID)
 
   output.write('Total Cost:      %d AAs\n' % record.totalCost)
 

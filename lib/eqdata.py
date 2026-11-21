@@ -67,7 +67,10 @@ def loadDBSpells():
     for line in db:
       result = re.match(r'^(\d+)\^([\w\s\`\'\-\(\)\:\+]+?)\^', line)
       if (result != None):
-        spells[int(result.group(1))] = result.group(2)
+        data = line.split('^')
+        slots = data[-1].split('$')
+        slots.reverse()
+        spells[int(result.group(1))] = [result.group(2), slots]
     if (len(spells) > 0):
       print('Found %d entries' % len(spells))
     else:
